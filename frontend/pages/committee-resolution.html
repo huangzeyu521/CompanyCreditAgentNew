@@ -7,6 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="../assets/js/tailwind.config.js?v=20260511a"></script>
 <link rel="stylesheet" href="../assets/css/theme.css?v=20260511a" />
+<meta http-equiv="Cache-Control" content="no-store" />
 </head>
 <body>
 <div id="app"></div>
@@ -41,6 +42,12 @@ function renderDetailView(p, allRes) {
     <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
       <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       <span><strong class="text-ink">数据声明：</strong>决议书结构对齐《信评委制度》第二十八至三十一条；具体内容为 CCASCEA 演示样例。</span>
+    </div>
+    <div class="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4 text-[11px] text-ink/80 leading-relaxed">
+      ⓘ <strong>关于「公共信用」等级</strong>：决议书与议项中所列 A/B/C/D 等级是<strong>远东资信</strong>按
+      <strong>GB/T 45255-2025《公共信用综合评价规范》</strong>，依据信用中国披露的失信被执行 / 严重失信 / 经营异常等事实条目计算得出的综合评价；
+      <strong class="text-warning">信用中国本身不打分、不出 A/B/C/D 等级</strong>。
+      "D 级红线锁定"即综合评价为 D 时强制市场化评级 ≤ BBB-（GB/T 45255-2025 第六条）。
     </div>`;
 
   const header = `
@@ -274,7 +281,7 @@ function renderDetailView(p, allRes) {
         <div class="space-y-3 text-xs leading-relaxed">
           <p><strong>一、议项摘要</strong></p>
           <p class="text-ink/85 indent-8">本次信评委对 <strong>${cur.subject}</strong> 主体信用等级及评级展望进行审议。项目组提交的评级建议为 <strong>${cur.proposedGrade}</strong>，
-          基于 BACP 评分 + AM 调整 + 外部支持评估，并融合公共信用 <strong>${cur.publicGrade}</strong> 级。</p>
+          基于 BACP 评分 + AM 调整 + 外部支持评估，并融合公共信用综合评价 <strong>${cur.publicGrade}</strong> 级（按 GB/T 45255-2025《公共信用综合评价规范》，依据信用中国披露的事实条目评出，非信用中国官方等级）。</p>
 
           <p><strong>二、审议过程</strong></p>
           <p class="text-ink/85 indent-8">1. 项目组负责人介绍评级要点；2. 委员逐条审议关键风险（详见上方"关键风险点"区）；

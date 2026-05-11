@@ -5,18 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>信评委工作台 · CCASCEA</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
-<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+<script src="../assets/js/tailwind.config.js?v=20260511b"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260511b" />
+<meta http-equiv="Cache-Control" content="no-store" />
 </head>
 <body>
 <div id="app"></div>
-<script src="../assets/js/config.js?v=20260505i"></script>
-<script src="../assets/js/mock-data.js?v=20260505i"></script>
-<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
-<script src="../assets/js/common.js?v=20260505i"></script>
-<script src="../assets/js/layout.js?v=20260505i"></script>
-<script src="../assets/js/prompts.js?v=20260505i"></script>
-<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script src="../assets/js/config.js?v=20260511b"></script>
+<script src="../assets/js/mock-data.js?v=20260511b"></script>
+<script src="../assets/js/copy-corpus.js?v=20260511b"></script>
+<script src="../assets/js/common.js?v=20260511b"></script>
+<script src="../assets/js/layout.js?v=20260511b"></script>
+<script src="../assets/js/prompts.js?v=20260511b"></script>
+<script src="../assets/js/ai-agent.js?v=20260511b"></script>
 <script>
 /* ============== 信评委工作台（FR-G-002）============== */
 function renderMain() {
@@ -29,6 +30,14 @@ function renderMain() {
           <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
         </div>
+
+    <!-- 公共信用 ABCD 口径说明 -->
+    <div class="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-4 text-[11px] text-ink/80 leading-relaxed">
+      ⓘ <strong>关于「公共信用」等级</strong>：议项卡片中所列 A/B/C/D 等级是<strong>远东资信</strong>按
+      <strong>GB/T 45255-2025《公共信用综合评价规范》</strong>，依据信用中国披露的失信被执行 / 严重失信 / 经营异常等事实条目计算得出的综合评价；
+      <strong class="text-warning">信用中国本身不打分、不出 A/B/C/D 等级，本页所示 ABCD 非信用中国官方</strong>。
+      "D 级红线 · 强制 ≤ BBB-" 即综合评价为 D 触发的市场化锁定。
+    </div>
 
     <section class="bg-white rounded-lg shadow-card p-5 mb-5">
       <div class="flex items-start justify-between">
