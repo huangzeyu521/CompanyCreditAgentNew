@@ -27,7 +27,8 @@ for f in frontend/tools/debug_master.cjs \
          frontend/tools/e2e_conflict_detail.cjs \
          frontend/tools/e2e_project_detail_v2.cjs \
          frontend/tools/e2e_last_project_memory.cjs \
-         frontend/tools/e2e_kyc_factual.cjs; do
+         frontend/tools/e2e_kyc_factual.cjs \
+         frontend/tools/e2e_subject_rating_factual.cjs; do
   base=$(basename "$f")
   log="$TMPDIR/$base.log"
   # 第一次跑
