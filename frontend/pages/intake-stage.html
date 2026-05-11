@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>① 立项与准入（聚合工作台）· CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== ① 立项与准入 阶段聚合工作台
+ * 对齐《信用评级业务程序指引》第十二至十五条 接受委托 + 评级准备
+ * 包含：项目登记 / 利冲筛查 / 公共信用快查 / 委托协议 / 防火墙
+ * ==================================================================== */
+function renderMain() {
+  const projects = MockData.projects;
+  const conflicts = MockData.conflictChecks;
+  const inProgress = projects.filter(p => p.status === 'in_progress' || p.status === 'review').length;
+  return `
+    <!-- 阶段头 -->
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="num text-2xl text-brand-600 font-bold">①</span>
+            立项与准入 · 阶段工作台
+            <span class="text-xs text-muted font-normal ml-2">《信用评级业务程序指引》第十二至十五条</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            评级业务流转的第一站。完成<strong>接受委托 → 利益冲突筛查 → 公共信用快查 → 委托协议签署 → 项目组组建 → 防火墙隔离</strong>等准入动作。
+            通过本阶段后方可进入②尽职调查。
+          </p>
+        </div>
+        <button onclick="askAIIntake()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手解读流程</button>
+      </div>
+
+      <!-- 阶段进度条 -->
+      <div class="mt-5">
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-muted">本阶段流程：</span>
+          ${[
+            ['接受委托','✓'], ['利益冲突筛查','✓'], ['公共信用快查','✓'], ['委托协议','✓'], ['项目组组建','✓'], ['防火墙隔离','✓']
+          ].map(([t,s], i, arr) => `
+            <span class="flex items-center gap-1">
+              <span class="w-5 h-5 rounded-full bg-success/20 text-success text-[10px] flex items-center justify-center font-semibold">${s}</span>
+              <span class="text-ink">${t}</span>
+            </span>
+            ${i < arr.length - 1 ? '<span class="text-muted">→</span>' : ''}
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- KPI -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本阶段在办项目</div><div class="num text-2xl font-bold text-brand-600 mt-1">${inProgress}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本月新立项</div><div class="num text-2xl font-bold text-success mt-1">12</div></div>
+        <div class="border border-border rounded-md p-3 ${conflicts.filter(c=>c.hit).length>0?'bg-warning/5':''}"><div class="text-xs text-muted">利冲命中</div><div class="num text-2xl font-bold text-warning mt-1">${conflicts.filter(c=>c.hit).length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">委托协议（已签）</div><div class="num text-2xl font-bold text-brand-700 mt-1">${MockData.contracts.length}</div></div>
+        <div class="border border-border rounded-md p-3 bg-success/5"><div class="text-xs text-success">防火墙状态</div><div class="text-base font-bold text-success mt-1">✓ 隔离生效</div></div>
+      </div>
+    </section>
+
+    <!-- 子工作台导航卡 -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+      ${[
+        { href:'project-intake.html',  title:'项目登记与立项', desc:'电子登记、按 GB 32100 编码、组建项目组（≥2 人，组长 ≥3 年）、防火墙隔离', icon:'📋', kpi:`${projects.length} 个在评项目` },
+        { href:'conflict-check.html',  title:'利益冲突筛查',   desc:'12 类规则自动筛查 · 委托方 / 受评对象 / 增信主体 / 项目组成员关联', icon:'🛡️', kpi:`${conflicts.filter(c=>c.hit).length} 项命中` },
+        { href:'kyc.html',              title:'公共信用快查（KYC）', desc:'红黄绿建议 · 八大维度画像 · D 级触发承接预警', icon:'🔍', kpi:'10 秒快速画像' }
+      ].map(c => `
+        <a href="${c.href}" class="block border border-border rounded-lg p-5 hover:border-brand-300 hover:bg-brand-50/30 hover:shadow-card transition-all">
+          <div class="text-3xl mb-2">${c.icon}</div>
+          <div class="text-base font-semibold text-brand-700">${c.title}</div>
+          <div class="text-xs text-muted leading-snug mt-2">${c.desc}</div>
+          <div class="flex items-center justify-between mt-3 pt-3 border-t border-border">
+            <span class="text-xs text-muted">${c.kpi}</span>
+            <span class="text-xs text-brand-600 hover:underline">进入工作台 →</span>
+          </div>
+        </a>
+      `).join('')}
+    </section>
+
+    <!-- 本阶段在办项目（最多 5 个） -->
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          本阶段在办项目
+        </h3>
+        <a href="project-intake.html" class="text-xs text-brand-600 hover:underline">查看全部 →</a>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2.5">项目编号</th>
+          <th class="py-2.5">受评对象</th>
+          <th class="py-2.5">行业</th>
+          <th class="py-2.5">评级类型</th>
+          <th class="py-2.5">项目组</th>
+          <th class="py-2.5">立项日期</th>
+          <th class="py-2.5 pr-4 text-right">下一步</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          ${projects.slice(0, 5).map(p => `
+            <tr class="hover:bg-bg">
+              <td class="px-4 py-2.5 num text-xs">${p.id}</td>
+              <td class="text-sm font-medium">${p.subject}</td>
+              <td class="text-xs text-muted">${p.industry}</td>
+              <td class="text-xs">${p.ratingType}</td>
+              <td class="text-xs">${p.leadAnalyst} / ${p.team.length} 人</td>
+              <td class="text-xs num text-muted">${p.createdAt}</td>
+              <td class="text-right pr-4">
+                <a href="dd-stage.html" class="text-xs text-brand-600 hover:underline">→ ② 尽职调查</a>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 阶段流转下一步 -->
+    <section class="flex items-center justify-between bg-bg/40 border border-border rounded-lg p-4 mt-5">
+      <div class="text-xs text-muted">完成立项 + 利冲 + 公共信用快查后，进入下一阶段</div>
+      <a href="dd-stage.html" class="text-xs px-4 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700 flex items-center gap-1">
+        下一阶段：② 尽职调查
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+      </a>
+    </section>
+  `;
+}
+
+function askAIIntake() {
+  AIAgent.setScene('kb-rag');
+  const projs = (window.MockData && MockData.projects) || [];
+  const conflicts = (window.MockData && MockData.conflictChecks) || [];
+  const inIntake = projs.filter(p => /立项|尽调|建模|审核|跟踪/.test(p.stage || '')).slice(0, 8);
+  const ctx = '在评项目 ' + projs.length + ' 单 · 利冲筛查记录 ' + conflicts.length + ' 条\n' +
+    inIntake.map(p => '· ' + p.id + ' · ' + p.subject + ' · 阶段=' + p.stage + ' · 评级师=' + (p.analyst || '未分派') + ' · 利冲状态=' + (p.conflictStatus || '未筛查')).join('\n');
+  AIAgent.send(
+    '请基于当前立项与准入阶段在办项目，给出"立项合规动作清单 + 项目组组建建议 + 利冲风险预警"三段式建议。\n' +
+    '当前在办项目（节选）：\n' + ctx + '\n\n' +
+    '要求：\n' +
+    '1. 立项 6 大动作：利冲筛查 / 合同签订 / 项目组组建 / 资料清单下达 / 立项决议 / 立项公告，逐项给出当前缺失项；\n' +
+    '2. 项目组合规校验：≥2 人 / 组长 ≥3 年评级经验 / 三年轮换 / 防火墙隔离，逐项核查；\n' +
+    '3. 利冲风险预警：哪些项目存在评级师 / 客户 / 投资人三方利益关联；\n' +
+    '4. 给评级总监的"立项审批"决策建议（按主体行业 + 客户关系打分）；\n' +
+    '5. 引用《信用评级业务程序指引》第十二至十五条 + 《防火墙制度》第四条。',
+    ctx
+  );
+}
+
+mountLayout('intake-stage', renderMain);
+</script>
+</body>
+</html>

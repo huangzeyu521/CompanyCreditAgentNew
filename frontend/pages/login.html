@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>登录 · 企业信用状况综合评价智能体</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+<style>
+  .deco-circle-1 { width: 360px; height: 360px; top: -120px; right: -100px; background: rgba(255,255,255,.06); }
+  .deco-circle-2 { width: 220px; height: 220px; bottom: -60px; left: -60px; background: rgba(255,255,255,.05); }
+  .deco-circle-3 { width: 120px; height: 120px; top: 40%; left: 30%; background: rgba(255,255,255,.04); }
+</style>
+</head>
+<body class="bg-bg">
+
+<div class="min-h-screen flex">
+  <!-- 左侧渐变深蓝品牌区 -->
+  <section class="hidden md:flex md:w-1/2 grad-deep-blue text-white relative overflow-hidden">
+    <span class="deco-circle deco-circle-1"></span>
+    <span class="deco-circle deco-circle-2"></span>
+    <span class="deco-circle deco-circle-3"></span>
+
+    <div class="relative z-10 px-12 py-16 flex flex-col w-full">
+      <!-- Logo -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-white/15 backdrop-blur flex items-center justify-center font-bold">CC</div>
+        <div>
+          <div class="text-base font-semibold">远东资信评估有限公司</div>
+          <div class="text-xs opacity-70">SFECR · CCASCEA</div>
+        </div>
+      </div>
+
+      <!-- 标题 -->
+      <div class="mt-16">
+        <div class="text-3xl font-bold leading-tight">
+          企业信用状况<br/>综合评价智能体
+        </div>
+        <div class="mt-3 text-sm opacity-80 leading-relaxed">
+          双轨融合 · 白盒化解构 · 跨域翻译 · 刚性熔断 · 一键报告<br/>
+          严格遵循GB/T 45255-2025文与 GB/T 45255-2025 顶层设计
+        </div>
+      </div>
+
+      <!-- 4 步功能列表 -->
+      <ul class="mt-12 space-y-4 text-sm">
+        <li class="flex items-start gap-3">
+          <span class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+          <div>
+            <div class="font-medium">机制化全域抓取</div>
+            <div class="text-xs opacity-70 mt-0.5">隐私计算"安全融合舱" · 10 大公共信用数据源秒级触达</div>
+          </div>
+        </li>
+        <li class="flex items-start gap-3">
+          <span class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+          <div>
+            <div class="font-medium">白盒化逆向解构</div>
+            <div class="text-xs opacity-70 mt-0.5">基于 GB/T 23794-2023 国标，明确每一笔扣分依据</div>
+          </div>
+        </li>
+        <li class="flex items-start gap-3">
+          <span class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+          <div>
+            <div class="font-medium">跨域翻译 + 图谱穿透</div>
+            <div class="text-xs opacity-70 mt-0.5">公共扣分→PD/LGD 映射 · 实控人 / 担保链穿透</div>
+          </div>
+        </li>
+        <li class="flex items-start gap-3">
+          <span class="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
+          <div>
+            <div class="font-medium">双轨融合报告</div>
+            <div class="text-xs opacity-70 mt-0.5">D 级一票否决 · 三级审核 · 区块链审计归档</div>
+          </div>
+        </li>
+      </ul>
+
+      <!-- 4 枚合规徽章 -->
+      <div class="mt-auto pt-10 flex items-center gap-2 flex-wrap">
+        <span class="px-2 py-1 bg-white/15 rounded text-[10px]">✓ GB/T 45255-2025</span>
+        <span class="px-2 py-1 bg-white/15 rounded text-[10px]">✓ GB/T 45255-2025</span>
+        <span class="px-2 py-1 bg-white/15 rounded text-[10px]">✓ GB/T 23794-2023</span>
+        <span class="px-2 py-1 bg-white/15 rounded text-[10px]">✓ 等保三级</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 右侧登录卡片 -->
+  <section class="flex-1 flex items-center justify-center px-6 py-10">
+    <div class="w-full max-w-md">
+      <div class="bg-white rounded-lg shadow-card p-8">
+        <h1 class="text-xl font-semibold">欢迎登录</h1>
+        <p class="text-xs text-muted mt-1">远东资信评级业务专属智能体 · 评级分析师入口</p>
+
+        <!-- 切换 tab：账号密码 / SSO -->
+        <div class="mt-6 flex bg-bg rounded-md p-1">
+          <button id="tab-pwd" onclick="switchTab('pwd')" class="flex-1 text-xs py-1.5 rounded bg-white shadow-sm font-medium">账号密码登录</button>
+          <button id="tab-sso" onclick="switchTab('sso')" class="flex-1 text-xs py-1.5 rounded text-muted">企业 SSO 登录</button>
+        </div>
+
+        <!-- 表单 -->
+        <form id="form-pwd" class="mt-5 space-y-4" onsubmit="return doLogin(event)">
+          <div>
+            <label class="text-xs text-muted">工号 / 邮箱<span class="text-danger">*</span></label>
+            <input id="username" value="wangmy" type="text" autocomplete="username"
+              class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" required />
+          </div>
+          <div>
+            <label class="text-xs text-muted">密码<span class="text-danger">*</span></label>
+            <input id="password" value="••••••••" type="password" autocomplete="current-password"
+              class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" required />
+          </div>
+          <div class="flex items-center justify-between text-xs">
+            <label class="flex items-center gap-1.5">
+              <input id="remember" type="checkbox" class="text-brand-600" checked />
+              <span>7 天免登录</span>
+            </label>
+            <a href="#" onclick="toast('请联系系统管理员重置密码','info');return false" class="text-brand-600 hover:underline">忘记密码？</a>
+          </div>
+          <button type="submit" class="w-full text-sm py-2.5 bg-brand-600 text-white rounded-md hover:bg-brand-700 font-medium">登录</button>
+        </form>
+
+        <form id="form-sso" class="mt-5 space-y-4 hidden" onsubmit="return doLogin(event)">
+          <div class="p-4 bg-brand-50 border border-brand-100 rounded-md text-xs text-brand-700 leading-relaxed">
+            将通过远东资信企业身份认证中心（CAS / OIDC）完成单点登录，您将被重定向到组织 IdP 完成验证，无需再次输入密码。
+          </div>
+          <button type="submit" class="w-full text-sm py-2.5 bg-brand-600 text-white rounded-md hover:bg-brand-700 font-medium">使用企业账号登录</button>
+        </form>
+
+        <!-- 安全合规说明 -->
+        <div class="mt-6 pt-5 border-t border-border text-[11px] text-muted space-y-1.5 leading-relaxed">
+          <div>① 您的登录将记录到不可篡改的审计链路（来源：评级结果验证和公布制度）</div>
+          <div>② 严禁与他人共享账号；任何登录与操作记录将在审计日志中留痕</div>
+          <div>③ 本系统数据仅用于远东资信评级业务，原始政务数据 0 次出域</div>
+        </div>
+      </div>
+
+      <div class="text-center text-[11px] text-muted mt-6">
+        © 2026 远东资信评估有限公司 · CCASCEA V1.0 · 备案沪 ICP 备 ************ 号
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script>
+function switchTab(t) {
+  document.getElementById('form-pwd').classList.toggle('hidden', t !== 'pwd');
+  document.getElementById('form-sso').classList.toggle('hidden', t !== 'sso');
+  const pwd = document.getElementById('tab-pwd');
+  const sso = document.getElementById('tab-sso');
+  if (t === 'pwd') {
+    pwd.className = 'flex-1 text-xs py-1.5 rounded bg-white shadow-sm font-medium';
+    sso.className = 'flex-1 text-xs py-1.5 rounded text-muted';
+  } else {
+    sso.className = 'flex-1 text-xs py-1.5 rounded bg-white shadow-sm font-medium';
+    pwd.className = 'flex-1 text-xs py-1.5 rounded text-muted';
+  }
+}
+function doLogin(e) {
+  e.preventDefault();
+  const u = document.getElementById('username').value.trim();
+  if (!u) { toast('请输入工号 / 邮箱', 'warning'); return false; }
+  toast('登录成功，正在进入工作台...', 'success', 1200);
+  setTimeout(() => location.href = 'workbench.html', 1200);
+  return false;
+}
+</script>
+</body>
+</html>

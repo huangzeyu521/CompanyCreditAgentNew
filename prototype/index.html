@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>演示导航中心 · 企业信用状况综合评价智能体 CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="assets/js/tailwind.config.js"></script>
+<link rel="stylesheet" href="assets/css/theme.css" />
+<style>
+  .page-card { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+  .page-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px -10px rgba(31,73,125,.18); border-color: #2E74B5; }
+  .gradient-hero { background: linear-gradient(135deg, #1F497D 0%, #2E74B5 50%, #4A90E2 100%); }
+  .blob { position: absolute; border-radius: 50%; filter: blur(60px); opacity: .35; pointer-events: none; }
+</style>
+</head>
+<body class="bg-bg">
+
+<!-- ========== Hero Banner ========== -->
+<section class="relative gradient-hero text-white overflow-hidden">
+  <div class="blob bg-cyan-300 w-72 h-72 top-0 right-20"></div>
+  <div class="blob bg-blue-200 w-64 h-64 bottom-0 left-10"></div>
+
+  <div class="relative max-w-7xl mx-auto px-8 py-12">
+    <div class="flex items-center justify-between flex-wrap gap-6">
+      <div>
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-lg bg-white/15 flex items-center justify-center">
+            <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold tracking-wide">CCASCEA · 企业信用状况综合评价智能体</h1>
+            <p class="text-sm text-white/80 mt-1">面向市场化评级机构的"社会信用深度解析与跨域风险映射引擎"</p>
+          </div>
+        </div>
+        <div class="mt-5 flex items-center gap-2 flex-wrap">
+          <span class="text-xs px-2 py-1 bg-white/15 rounded">国办发〔2026〕8号</span>
+          <span class="text-xs px-2 py-1 bg-white/15 rounded">GB/T 23794-2023</span>
+          <span class="text-xs px-2 py-1 bg-white/15 rounded">GB/T 45255-2025</span>
+          <span class="text-xs px-2 py-1 bg-white/15 rounded">等保2.0 三级</span>
+          <span class="text-xs px-2 py-1 bg-white/15 rounded">隐私计算 FL · MPC · TEE · DP</span>
+        </div>
+      </div>
+      <div class="flex flex-col items-end gap-3">
+        <a href="login.html" class="inline-flex items-center gap-2 bg-white text-brand-700 font-medium px-5 py-2.5 rounded-md hover:bg-brand-50 transition">
+          通过登录入口体验完整流程
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+        <span class="text-xs text-white/70">演示账号 admin / 任意密码</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== 主体说明 ========== -->
+<section class="max-w-7xl mx-auto px-8 py-8">
+  <div class="bg-white rounded-lg shadow-card p-6 mb-8 border-l-4 border-brand-600">
+    <h2 class="text-base font-semibold text-brand-700 flex items-center gap-2">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4l3 2"/></svg>
+      演示包使用说明
+    </h2>
+    <ul class="text-sm text-ink/80 mt-3 space-y-1.5">
+      <li>· <span class="font-medium">直接点击下方任一卡片</span>，即可进入对应页面查看完整功能</li>
+      <li>· 所有页面之间通过<span class="font-medium">左侧栏</span>互相跳转，回到此页可点击右上角"返回演示中心"链接</li>
+      <li>· <span class="font-medium">演示数据完整</span>：10 个主体、18 个 API、30 条审计日志、15 个动态图表</li>
+      <li>· 支持<span class="font-medium">双击 index.html</span>本地浏览，或运行 <code class="px-1.5 py-0.5 bg-bg rounded text-xs">start-server.bat</code>（Windows）<code class="px-1.5 py-0.5 bg-bg rounded text-xs">start-server.sh</code>（Mac/Linux）启动 HTTP 服务</li>
+    </ul>
+  </div>
+
+  <!-- ===== 五步闭环工作流入口（最显眼） ===== -->
+  <h2 class="text-lg font-semibold text-ink flex items-center gap-2 mb-4">
+    <span class="w-1 h-5 bg-brand-600 rounded"></span>
+    核心工作流：五步闭环（点击任一进入）
+    <span class="text-xs text-muted font-normal">· 严格对齐《产品设计文档 V1.0》5.5 节</span>
+  </h2>
+  <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
+    <a href="pages/subject-rating.html?step=1&subject=XX 股份有限公司" class="page-card bg-white rounded-lg shadow-card overflow-hidden border-2 border-transparent block">
+      <div class="h-1.5 step-bar"></div>
+      <div class="p-4">
+        <div class="num text-2xl font-bold text-brand-600">①</div>
+        <div class="font-semibold text-sm mt-1">目标录入与全域抓取</div>
+        <p class="text-xs text-muted mt-1 leading-snug">隐私计算"安全融合舱" 秒级抓取 10 数据源</p>
+      </div>
+    </a>
+    <a href="pages/subject-rating.html?step=2&subject=XX 股份有限公司" class="page-card bg-white rounded-lg shadow-card overflow-hidden border-2 border-transparent block">
+      <div class="h-1.5 step-bar"></div>
+      <div class="p-4">
+        <div class="num text-2xl font-bold text-brand-600">②</div>
+        <div class="font-semibold text-sm mt-1">白盒化解构</div>
+        <p class="text-xs text-muted mt-1 leading-snug">GB/T 23794 国标 · 4 维雷达 · 归因清单</p>
+      </div>
+    </a>
+    <a href="pages/subject-rating.html?step=3&subject=XX 股份有限公司" class="page-card bg-white rounded-lg shadow-card overflow-hidden border-2 border-transparent block">
+      <div class="h-1.5 step-bar"></div>
+      <div class="p-4">
+        <div class="num text-2xl font-bold text-brand-600">③</div>
+        <div class="font-semibold text-sm mt-1">跨域翻译 + 图谱穿透</div>
+        <p class="text-xs text-muted mt-1 leading-snug">PD/LGD 自动映射 + 知识图谱传染分析</p>
+      </div>
+    </a>
+    <a href="pages/subject-rating.html?step=4&subject=华东建材有限公司" class="page-card bg-white rounded-lg shadow-card overflow-hidden border-2 border-transparent block">
+      <div class="h-1.5 step-bar"></div>
+      <div class="p-4">
+        <div class="num text-2xl font-bold text-brand-600">④</div>
+        <div class="font-semibold text-sm mt-1">熔断校验</div>
+        <p class="text-xs text-muted mt-1 leading-snug">10 大 D 级条件 · 一票否决（点击查看 D 级主体）</p>
+      </div>
+    </a>
+    <a href="pages/subject-rating.html?step=5&subject=XX 股份有限公司" class="page-card bg-white rounded-lg shadow-card overflow-hidden border-2 border-transparent block">
+      <div class="h-1.5 step-bar"></div>
+      <div class="p-4">
+        <div class="num text-2xl font-bold text-brand-600">⑤</div>
+        <div class="font-semibold text-sm mt-1">双轨融合报告</div>
+        <p class="text-xs text-muted mt-1 leading-snug">人工复判 + 一键生成 + 自动植入合规声明</p>
+      </div>
+    </a>
+  </div>
+
+  <!-- ===== 14 页面 全部预览 ===== -->
+  <h2 class="text-lg font-semibold text-ink flex items-center gap-2 mb-4">
+    <span class="w-1 h-5 bg-brand-600 rounded"></span>
+    14 个完整页面（点击进入）
+  </h2>
+
+  <!-- 评级业务页面 -->
+  <h3 class="text-sm font-semibold text-muted mt-4 mb-3 tracking-widest">▸ 核心评级业务（6 个）</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    <a href="pages/workbench.html" class="page-card bg-white rounded-lg shadow-card border-2 border-transparent p-5 block">
+      <div class="flex items-center justify-between">
+        <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M3 12l2-2 4 4 8-8 4 4M3 21h18"/></svg>
+        </div>
+        <span class="text-xs text-success font-medium bg-success/10 px-2 py-0.5 rounded-full border border-success/30">主入口</span>
+      </div>
+      <div class="font-semibold text-base mt-3">工作台首页</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">4 KPI 仪表盘 · 五步闭环入口 · 今日待办 · 重要预警 · 行业洞察 · 隐私计算盒</p>
+    </a>
+    <a href="pages/subject-rating.html" class="page-card bg-white rounded-lg shadow-card border-2 border-transparent p-5 block">
+      <div class="flex items-center justify-between">
+        <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9 17v-6h4l-2-2-2 2m4 6V11h4l-2-2-2 2"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        </div>
+        <span class="text-xs text-brand-700 font-medium bg-brand-100 px-2 py-0.5 rounded-full">五步</span>
+      </div>
+      <div class="font-semibold text-base mt-3">主体评级（核心）</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">完整五步闭环工作流：录入→采集→解构→翻译→图谱→熔断→报告</p>
+    </a>
+    <a href="pages/bond-rating.html" class="page-card bg-white rounded-lg shadow-card border-2 border-transparent p-5 block">
+      <div class="flex items-center justify-between">
+        <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="14" rx="2"/><path stroke-linecap="round" d="M8 10h8M8 14h5"/></svg>
+        </div>
+      </div>
+      <div class="font-semibold text-base mt-3">债项评级</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">主体快照 + 债项要素录入 + 增信效果分析 + 双轨融合等级</p>
+    </a>
+    <a href="pages/tracking.html" class="page-card bg-white rounded-lg shadow-card border-2 border-transparent p-5 block">
+      <div class="flex items-center justify-between">
+        <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M3 12a9 9 0 1118 0 9 9 0 01-18 0zM12 7v5l4 2"/></svg>
+        </div>
+        <span class="text-xs text-warning font-medium bg-warning/10 px-2 py-0.5 rounded-full border border-warning/30">3 预警</span>
+      </div>
+      <div class="font-semibold text-base mt-3">跟踪评级</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">订阅主体管理 + 实时预警列表 + 本周趋势堆叠柱状图 + 级别饼图</p>
+    </a>
+    <a href="pages/kyc.html" class="page-card bg-white rounded-lg shadow-card border-2 border-transparent p-5 block">
+      <div class="flex items-center justify-between">
+        <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9 12l2 2 4-4m6 2A9 9 0 113 12a9 9 0 0118 0z"/></svg>
+        </div>
+        <span class="text-xs text-success font-medium bg-success/10 px-2 py-0.5 rounded-full border border-success/30">10 秒画像</span>
+      </div>
+      <div class="font-semibold text-base mt-3">客户尽调 KYC</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">快速画像 + 红/黄/绿三色判定 + 关联风险预警</p>
+    </a>
+    <a href="pages/industry-scan.html" class="page-card bg-white rounded-lg shadow-card border-2 border-transparent p-5 block">
+      <div class="flex items-center justify-between">
+        <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M3 17l6-6 4 4 8-8M14 7h7v7"/></svg>
+        </div>
+        <span class="text-xs text-brand-700 font-medium bg-brand-100 px-2 py-0.5 rounded-full">4 图表</span>
+      </div>
+      <div class="font-semibold text-base mt-3">行业风险扫描</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">区域热度 + 12 月趋势 + 等级分布 + TOP 5 风险 + 5 家熔断专列</p>
+    </a>
+  </div>
+
+  <!-- 报告与合规 -->
+  <h3 class="text-sm font-semibold text-muted mt-4 mb-3 tracking-widest">▸ 报告与合规交付（4 个）</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <a href="pages/reports.html" class="page-card bg-white rounded-lg shadow-card border-2 border-transparent p-5 block">
+      <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9l-6-6z"/></svg>
+      </div>
+      <div class="font-semibold text-base mt-3">我的报告库</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">10 份报告 · 多维筛选 · 真 CSV 导出 · 分页</p>
+    </a>
+    <a href="pages/report-detail.html" class="page-card bg-white rounded-lg shadow-card border-2 border-gold/40 p-5 block">
+      <div class="flex items-center justify-between">
+        <div class="w-10 h-10 rounded-lg bg-gold/10 text-gold flex items-center justify-center">
+          <span class="text-base font-bold">★</span>
+        </div>
+        <span class="text-xs text-gold font-medium bg-gold/10 px-2 py-0.5 rounded-full border border-gold/30">双轨核心</span>
+      </div>
+      <div class="font-semibold text-base mt-3">双轨融合报告详情</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">完整 12 章 · 雷达图 + 力图 + 白盒清单 + 金色融合声明</p>
+    </a>
+    <a href="pages/monitoring-report.html" class="page-card bg-white rounded-lg shadow-card border-2 border-transparent p-5 block">
+      <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 4h16v4H4zM4 14h16v6H4z"/></svg>
+      </div>
+      <div class="font-semibold text-base mt-3">监管报送</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">月度/季度报送底稿 · 6 季度趋势 · 历史可点击查看</p>
+    </a>
+    <a href="pages/audit-log.html" class="page-card bg-white rounded-lg shadow-card border-2 border-transparent p-5 block">
+      <div class="flex items-center justify-between">
+        <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9 12l2 2 4-4M3 7l9-4 9 4-9 4-9-4z"/></svg>
+        </div>
+        <span class="text-xs text-success font-medium bg-success/10 px-2 py-0.5 rounded-full border border-success/30">区块链</span>
+      </div>
+      <div class="font-semibold text-base mt-3">审计日志</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">30 条日志 · 24h 时段图 · TOP5 操作饼 · Merkle 验证</p>
+    </a>
+  </div>
+
+  <!-- 系统与运营 -->
+  <h3 class="text-sm font-semibold text-muted mt-4 mb-3 tracking-widest">▸ 系统与运营（2 个）+ 入口（2 个）</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <a href="pages/system.html" class="page-card bg-white rounded-lg shadow-card border-2 border-transparent p-5 block">
+      <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M10.3 3.7l1.4 1.4 1.4-1.4 2.5.5.5 2.5 1.4 1.4-1.4 1.4.5 2.5-2.5.5-1.4 1.4-1.4-1.4-2.5-.5-.5-2.5L7.4 9 8.8 7.6l-.5-2.5z"/><circle cx="12" cy="12" r="3"/></svg>
+      </div>
+      <div class="font-semibold text-base mt-3">系统管理</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">7 Tab：用户/角色/租户/数据源/模型/接口/<span class="text-brand-700">监控（双图）</span></p>
+    </a>
+    <a href="pages/openapi.html" class="page-card bg-white rounded-lg shadow-card border-2 border-transparent p-5 block">
+      <div class="w-10 h-10 rounded-lg bg-brand-50 text-brand-700 flex items-center justify-center">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </div>
+      <div class="font-semibold text-base mt-3">开放平台</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">9 个 API · 14 天调用趋势 · TOP 5 · Token + 计费</p>
+    </a>
+    <a href="login.html" class="page-card bg-white rounded-lg shadow-card border-2 border-accent p-5 block">
+      <div class="flex items-center justify-between">
+        <div class="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+        </div>
+        <span class="text-xs text-accent font-medium bg-accent/10 px-2 py-0.5 rounded-full">入口</span>
+      </div>
+      <div class="font-semibold text-base mt-3">登录页</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">企业 SSO + 账号密码双登录 · 演示账号 admin/任意密码</p>
+    </a>
+    <a href="pages/404.html" class="page-card bg-white rounded-lg shadow-card border-2 border-transparent p-5 block">
+      <div class="w-10 h-10 rounded-lg bg-bg text-muted flex items-center justify-center">
+        <span class="text-base font-bold">!</span>
+      </div>
+      <div class="font-semibold text-base mt-3">404 兜底页</div>
+      <p class="text-xs text-muted mt-1 leading-relaxed">错误页面（设计完整度展示）</p>
+    </a>
+  </div>
+
+  <!-- ========== 信息说明 ========== -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-10 mb-6">
+    <div class="bg-white rounded-lg p-5 border border-border">
+      <div class="text-xs text-muted">演示数据规模</div>
+      <div class="grid grid-cols-2 gap-2 mt-3 text-sm">
+        <div>主体：<span class="num font-medium">10</span></div>
+        <div>报告：<span class="num font-medium">10</span></div>
+        <div>API：<span class="num font-medium">9</span></div>
+        <div>审计日志：<span class="num font-medium">30</span></div>
+        <div>动态图表：<span class="num font-medium">15</span></div>
+        <div>用户：<span class="num font-medium">5</span></div>
+      </div>
+    </div>
+    <div class="bg-white rounded-lg p-5 border border-border">
+      <div class="text-xs text-muted">关键交互</div>
+      <ul class="mt-3 text-xs space-y-1 text-ink/80">
+        <li>· 五步闭环 · 真实流转</li>
+        <li>· 报告 CSV · 真实下载</li>
+        <li>· D 级熔断 · 强制锁定 ≤ B 级</li>
+        <li>· 知识图谱 · 力图穿透</li>
+        <li>· 双轨融合 · 金色发光声明</li>
+      </ul>
+    </div>
+    <div class="bg-gradient-to-br from-brand-50 to-blue-50 rounded-lg p-5 border-2 border-brand-200">
+      <div class="text-xs text-brand-700 font-semibold">遵循国家标准</div>
+      <ul class="mt-3 text-xs space-y-1 text-ink/80">
+        <li>✓ 国办发〔2026〕8 号文</li>
+        <li>✓ GB/T 23794-2023 企业信用评价指标</li>
+        <li>✓ GB/T 45255-2025 公共信用综合评价规范</li>
+        <li>✓ GB/T 22116-2008 四等十级</li>
+        <li>✓ GB/T 8567-2006 软件文档规范</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ========== Footer ========== -->
+  <footer class="text-center text-xs text-muted py-8 border-t border-border mt-8">
+    <div>© 2026 CCASCEA · 企业信用状况综合评价智能体 · V1.0 演示版</div>
+    <div class="mt-1">数据来源：信用中国 · 全国信用信息共享平台 · 国家企业信用信息公示系统 · 税务总局 · 海关总署 · 最高人民法院 等</div>
+  </footer>
+</section>
+
+</body>
+</html>

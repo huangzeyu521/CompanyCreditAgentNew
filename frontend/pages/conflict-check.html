@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>利益冲突筛查 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260511a"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260511a" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260511a"></script>
+<script src="../assets/js/mock-data.js?v=20260511a"></script>
+<script src="../assets/js/copy-corpus.js?v=20260511a"></script>
+<script src="../assets/js/common.js?v=20260511a"></script>
+<script src="../assets/js/layout.js?v=20260511a"></script>
+<script src="../assets/js/prompts.js?v=20260511a"></script>
+<script src="../assets/js/ai-agent.js?v=20260511a"></script>
+<script>
+/* ============== 利益冲突筛查（FR-A-003）==============
+ *  · 项目模式（?projectId=X）：本项目利冲筛查 detail view
+ *      — 本主体身份卡 / 本次筛查元数据 / 12 条规则逐条结果 / 命中处置 / 历次时间线 / 行动区
+ *  · 全局模式（无 projectId）：全公司利冲台账 list view（与原逻辑一致）
+ * ====================================================== */
+function renderMain() {
+  const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+  const allItems = MockData.conflictChecks || [];
+  if (p) return renderDetailView(p, allItems);
+  return renderListView(allItems);
+}
+
+/* ============== 项目模式：detail view ============== */
+function renderDetailView(p, allItems) {
+  const projectItems = allItems.filter(c => c.project === p.id);
+  const cur = projectItems[0] || null;
+  const subj = (MockData.subjects || []).find(s => s.name === p.subject) || {};
+  const labels = (subj.creditLabels) || [];
+  const leadMember = (p.team && p.team[0]) || {};
+  const leadName = typeof leadMember === 'object' ? leadMember.name : leadMember;
+
+  const noticeBanner = `
+    <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+      <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span><strong class="text-ink">数据声明：</strong>主体身份字段来自公开资料；筛查记录与处置流程为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+    </div>`;
+
+  // 顶部：标题 + 反向链接 + AI 助手
+  const header = `
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between flex-wrap gap-2">
+        <div class="min-w-0">
+          <h1 class="text-lg font-semibold flex items-center gap-2 flex-wrap">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            <span class="text-brand-700">${p.subject}</span>
+            <span class="text-muted">·</span>
+            利益冲突筛查
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">项目级 · detail view</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            本页展示本项目（<strong class="text-ink">${p.id}</strong>）的完整利冲筛查结果：12 类规则逐条评估、命中处置与签字痕迹、历次筛查时间线。规则配置在公司层面统一维护，详见<a href="compliance-rules.html" class="text-brand-600 hover:underline">合规规则库</a>。
+          </p>
+          <div class="text-[11px] mt-2 flex items-center gap-3">
+            <a href="project-workbench.html?projectId=${p.id}" class="text-brand-600 hover:underline">← 返回项目工作台</a>
+            <span class="text-muted">|</span>
+            <a href="conflict-check.html" class="text-brand-600 hover:underline">查看全公司利冲台账 →</a>
+          </div>
+        </div>
+        <button onclick="askAIConflict()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90 flex-shrink-0">AI 助手解读</button>
+      </div>
+    </section>`;
+
+  // 本主体身份卡
+  const subjectCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5 overflow-hidden">
+      <div class="bg-gradient-to-r from-brand-600 to-brand-700 text-white px-5 py-4">
+        <div class="text-xs text-white/70 mb-1">受评主体</div>
+        <div class="text-lg font-bold flex items-center gap-2 flex-wrap">
+          <span>${p.subject}</span>
+          ${labels.map(l => `<span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full border border-white/30">${l}</span>`).join('')}
+        </div>
+        <div class="text-[11px] text-white/85 mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          <span>USCC · <span class="num">${subj.uscc || '—'}</span></span>
+          <span>行业 · ${p.industry || '—'}</span>
+          <span>评级类型 · ${p.ratingType || (Array.isArray(p.ratingTypes) ? p.ratingTypes.join('+') : '—')}</span>
+          <span>项目组组长 · ${leadName || '—'}</span>
+          <span>立项 · ${p.createdAt || '—'}</span>
+        </div>
+      </div>
+    </section>`;
+
+  if (!cur) {
+    // 空状态：项目尚未做过利冲筛查
+    return `
+      ${noticeBanner}
+      ${header}
+      ${subjectCard}
+      <section class="bg-white rounded-lg shadow-card px-5 py-16 text-center">
+        <div class="text-4xl mb-3">🛡️</div>
+        <div class="text-sm font-medium">本项目尚无利冲筛查记录</div>
+        <div class="text-xs text-muted mt-2">点击下方按钮启动 12 类规则全量筛查（合规部 ≤ 1 工作日完成）</div>
+        <button onclick="runFreshCheck()" class="mt-4 text-xs px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700">为本项目触发首次筛查</button>
+      </section>
+    `;
+  }
+
+  // 本次筛查元数据卡 + 总体结论
+  const verdictCls = cur.hit ? 'bg-danger/5 border-danger/40' : 'bg-success/5 border-success/40';
+  const verdictIcon = cur.hit ? '✗' : '✓';
+  const verdictText = cur.hit ? '命中预警 · 须合规复核' : '未命中 · 通过';
+  const verdictTone = cur.hit ? 'text-danger' : 'text-success';
+  const riskBadge = cur.risk === '高' ? 'bg-danger/10 text-danger border-danger/40'
+                  : cur.risk === '中' ? 'bg-warning/10 text-warning border-warning/30'
+                  : 'bg-success/10 text-success border-success/30';
+  const metaCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between flex-wrap gap-2">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          本次筛查 · ${cur.id}
+        </h2>
+        <span class="text-[11px] num text-muted">触发：${cur.trigger || '立项时自动'} · 检查时间 ${cur.checkedAt}</span>
+      </div>
+      <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2 border-2 ${verdictCls} rounded-lg p-4 flex items-center gap-4">
+          <div class="text-4xl ${verdictTone} font-bold">${verdictIcon}</div>
+          <div class="flex-1">
+            <div class="text-base font-semibold ${verdictTone}">${verdictText}</div>
+            <div class="text-xs text-muted mt-1 leading-snug">${cur.detail}</div>
+            <div class="mt-2 flex items-center gap-2 flex-wrap">
+              <span class="text-[10px] px-2 py-0.5 rounded border ${riskBadge}">${cur.risk} 风险</span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-muted">关联类型：${cur.subjectKind}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-muted">12 / 12 规则已检</span>
+            </div>
+          </div>
+        </div>
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span class="text-muted">检查人</span><span class="font-medium">${cur.operator || '—'}</span>
+          </div>
+          <div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span class="text-muted">岗位</span><span>${cur.operatorRole || '合规部'}</span>
+          </div>
+          <div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span class="text-muted">检查时间</span><span class="num">${cur.checkedAt}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted">本项目筛查次数</span><span class="num font-medium">${projectItems.length}</span>
+          </div>
+        </div>
+      </div>
+    </section>`;
+
+  // 12 条规则逐条结果
+  const ruleResults = cur.ruleResults || [];
+  const rulesGrid = `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between flex-wrap gap-2">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          12 类规则逐条结果
+        </h2>
+        <span class="text-[11px] text-muted">命中 <strong class="${cur.hit?'text-danger':'text-success'}">${ruleResults.filter(r=>r.hit).length}</strong> / 12 · 通过 <strong class="text-success">${ruleResults.filter(r=>!r.hit).length}</strong></span>
+      </div>
+      <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+        ${ruleResults.map((r, i) => {
+          const cls = r.hit ? 'border-danger/40 bg-danger/5' : 'border-border';
+          const iconCls = r.hit ? 'bg-danger text-white' : 'bg-success/15 text-success border border-success/30';
+          const ic = r.hit ? '✗' : '✓';
+          return `
+            <div class="border ${cls} rounded-md p-3 flex items-start gap-3">
+              <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${iconCls}">${ic}</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-[10px] num text-muted">#${String(i+1).padStart(2,'0')}</span>
+                  <span class="text-sm font-medium ${r.hit?'text-danger':''}">${r.rule}</span>
+                  ${r.hit ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/30">${r.severity} 严重度</span>` : ''}
+                </div>
+                <div class="text-xs ${r.hit?'text-ink/85':'text-muted'} leading-snug mt-1">${r.detail}</div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div class="px-5 py-3 border-t border-border bg-bg/40 text-[11px] text-muted">
+        规则依据《信用评级业务程序指引》第三–五条 + 《信评委制度》第三十二条 + 防火墙制度；规则配置由合规部统一维护。
+      </div>
+    </section>`;
+
+  // 命中处置区（若有命中）
+  const dispositionCard = cur.hit && cur.disposition ? `
+    <section class="bg-white rounded-lg shadow-card mb-5 border-l-4 border-danger">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-danger rounded"></span>
+          命中处置与签字
+        </h2>
+        <span class="text-[11px] text-success num">${cur.disposition.closedAt ? '已闭环 · ' + cur.disposition.closedAt : '待处置'}</span>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+          <div class="border border-border rounded p-3">
+            <div class="text-muted">处置方案</div>
+            <div class="font-medium text-base mt-1">${cur.disposition.plan}</div>
+          </div>
+          <div class="md:col-span-2 border border-border rounded p-3">
+            <div class="text-muted">处置详情</div>
+            <div class="leading-relaxed mt-1">${cur.disposition.details}</div>
+          </div>
+        </div>
+        <div>
+          <div class="text-xs text-muted mb-2">三签字联签（合规总监 + 法务总监 + 客户合规官）</div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            ${(cur.disposition.approvers || []).map(a => `
+              <div class="border ${a.signed?'border-success/40 bg-success/5':'border-border'} rounded p-3 flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full ${a.signed?'bg-success text-white':'bg-bg text-muted border border-border'} flex items-center justify-center text-xs font-bold">${a.signed?'✓':'○'}</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[11px] text-muted">${a.role}</div>
+                  <div class="text-sm font-medium">${a.name}</div>
+                  <div class="text-[10px] num text-muted">${a.signed?'签字 ' + a.signedAt:'待签'}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </section>
+  ` : '';
+
+  // 历次筛查时间线
+  const sorted = [...projectItems].sort((a,b) => (a.checkedAt < b.checkedAt ? 1 : -1));
+  const timeline = `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          本项目历次筛查时间线（${sorted.length}）
+        </h2>
+      </div>
+      <div class="p-5 space-y-3">
+        ${sorted.map(it => `
+          <div class="flex items-start gap-3 pb-3 border-b border-border/50 last:border-0 last:pb-0">
+            <div class="w-2 h-2 rounded-full ${it.hit?'bg-danger':'bg-success'} mt-1.5 flex-shrink-0"></div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-medium">${it.id}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded ${it.hit?'bg-danger/10 text-danger border border-danger/30':'bg-success/10 text-success border border-success/30'}">${it.hit?'✗ 命中':'✓ 未命中'}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-bg border border-border text-muted">${it.risk} 风险</span>
+              </div>
+              <div class="text-xs text-muted leading-snug mt-1">${it.detail}</div>
+              <div class="text-[10px] num text-muted mt-1">${it.checkedAt} · ${it.operator || ''}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </section>`;
+
+  // 行动区
+  const actions = `
+    <section class="bg-bg/40 border border-border rounded-lg p-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="text-xs text-muted">
+        ${cur.hit ? '处置闭环后系统将自动归档到合规审计链（留存 ≥ 15 年）。' : '已通过 12 类规则筛查，可进入下一阶段。'}
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button onclick="runFreshCheck()" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded hover:bg-brand-700">为本项目触发新筛查</button>
+        <button onclick="downloadReport()" class="text-xs px-3 py-1.5 border border-border rounded hover:bg-white">下载筛查报告 PDF</button>
+        ${cur.hit ? `<button onclick="openWaiver()" class="text-xs px-3 py-1.5 bg-danger text-white rounded hover:bg-red-700">合规复核 / 豁免</button>` : ''}
+      </div>
+    </section>`;
+
+  return `
+    ${noticeBanner}
+    ${header}
+    ${subjectCard}
+    ${metaCard}
+    ${rulesGrid}
+    ${dispositionCard}
+    ${timeline}
+    ${actions}
+  `;
+}
+
+/* ============== 全局模式：list view（保留合规台账） ============== */
+function renderListView(items) {
+  const hits = items.filter(x => x.hit).length;
+  const rows = items.map(c => {
+    const riskCls = c.risk === '高' ? 'bg-danger/10 text-danger border-danger/40'
+                  : c.risk === '中' ? 'bg-warning/10 text-warning border-warning/30'
+                  : 'bg-success/10 text-success border-success/30';
+    return `
+      <tr class="hover:bg-bg ${c.hit ? 'bg-danger/5' : ''}">
+        <td class="px-4 py-2.5 num text-xs">${c.id}</td>
+        <td class="text-xs num text-brand-700">${c.project}</td>
+        <td class="text-sm">${c.subject}</td>
+        <td class="text-xs">${c.subjectKind}</td>
+        <td class="text-xs ${c.hit ? 'text-danger font-semibold' : 'text-success'}">${c.hit ? '✗ 命中' : '✓ 未命中'}</td>
+        <td class="text-xs text-muted leading-snug max-w-md">${c.detail}</td>
+        <td><span class="text-xs px-1.5 py-0.5 rounded border ${riskCls}">${c.risk} 风险</span></td>
+        <td class="text-xs text-muted num">${c.checkedAt}</td>
+        <td class="text-right pr-4">
+          <a href="conflict-check.html?projectId=${c.project}" class="text-xs text-brand-600 hover:underline">详情 →</a>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+      <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span><strong class="text-ink">数据声明：</strong>筛查记录与命中详情为 CCASCEA 演示数据，仅供产品功能展示。</span>
+    </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between flex-wrap gap-2">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2 flex-wrap">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            利益冲突筛查
+            <span class="text-xs text-muted font-normal">FR-A-003 · 合规规则 RULE-004</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-bg text-muted border border-border">全公司台账 · list view</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            自动筛查委托方、受评对象、增信主体、项目组成员及其直系亲属、控股股东之间的关联关系；命中即预警，须由合规部进行复核与豁免审批。
+            依据《信用评审委员会制度》《信用评级业务程序指引》。
+          </p>
+        </div>
+        <button onclick="askAIConflict()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90 flex-shrink-0">AI 助手解读</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本月筛查总数</div><div class="num text-2xl font-bold text-brand-600 mt-1">${items.length}</div></div>
+        <div class="border border-border rounded-md p-3 ${hits>0?'bg-danger/5 border-danger/30':''}"><div class="text-xs ${hits>0?'text-danger':'text-muted'}">命中预警</div><div class="num text-2xl font-bold ${hits>0?'text-danger':'text-success'} mt-1">${hits}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">合规复核中</div><div class="num text-2xl font-bold text-warning mt-1">${items.filter(c=>c.hit && c.disposition && !c.disposition.closedAt).length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已闭环</div><div class="num text-2xl font-bold text-brand-700 mt-1">${items.filter(c=>c.hit && c.disposition && c.disposition.closedAt).length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">规则覆盖</div><div class="num text-2xl font-bold text-success mt-1">12 类</div></div>
+      </div>
+    </section>
+
+    <!-- 筛查规则配置（全局模式才展示，作为合规岗审视规则的入口）-->
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          筛查规则配置（公司层面）
+        </h2>
+        <a href="compliance-rules.html" class="text-[11px] text-brand-600 hover:underline">前往合规规则库 →</a>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+        ${[
+          ['项目组成员持股','成员或直系亲属持有委托方/评级对象 ≥ 0.1% 股份'],
+          ['过往任职','成员近 2 年内曾在委托方/评级对象任职'],
+          ['亲属关系','成员直系亲属（配偶/父母/子女）在委托方任职'],
+          ['控股股东关联','项目组成员所在部门与委托方控股股东存在业务关系'],
+          ['增信链关联','增信主体与项目组关联（含间接关联）'],
+          ['连续项目轮换','同一项目组连续承接同一主体超过 6 年'],
+          ['评级费用与级别脱钩','评级费用约定中含"按级别收费"等条款'],
+          ['市场部 / 评级业务部隔离','项目数据访问越权'],
+          ['竞业回避','成员同时承担与委托方有竞争关系企业的项目'],
+          ['信评委回避','信评委员对自己参与项目投票'],
+          ['复核独立性','三级审核中前后级人员重复'],
+          ['咨询顾问','项目组成员同时担任委托方咨询顾问']
+        ].map(([t,d]) => `
+          <div class="border border-border rounded p-3 hover:border-brand-300 hover:bg-brand-50/30 cursor-pointer">
+            <div class="flex items-center gap-2">
+              <span class="text-success">✓</span>
+              <div class="flex-1">
+                <div class="text-xs font-medium">${t}</div>
+                <div class="text-[10px] text-muted leading-snug mt-0.5">${d}</div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <!-- 筛查记录 list -->
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          筛查记录（全公司 ${items.length}）
+        </h2>
+        <button onclick="runFreshCheck()" class="text-xs px-3 py-1 bg-brand-600 text-white rounded hover:bg-brand-700">触发新筛查</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2.5">筛查编号</th>
+          <th class="py-2.5">关联项目</th>
+          <th class="py-2.5">受评对象</th>
+          <th class="py-2.5">关联类型</th>
+          <th class="py-2.5">结果</th>
+          <th class="py-2.5">细节</th>
+          <th class="py-2.5">风险</th>
+          <th class="py-2.5">检查时间</th>
+          <th class="py-2.5 pr-4 text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">${rows}</tbody>
+      </table>
+    </section>
+  `;
+}
+
+function runFreshCheck() {
+  const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+  if (p) {
+    toast(`正在为 ${p.subject} 调用 12 类规则筛查...`, 'info', 1200);
+    setTimeout(() => toast(`${p.subject} 筛查完成`, 'success'), 1200);
+  } else {
+    toast('正在调用 12 类规则全量筛查...', 'info', 1200);
+    setTimeout(() => toast('筛查完成：4 个项目，1 项命中', 'success'), 1200);
+  }
+}
+
+function downloadReport() {
+  const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+  toast(p ? `${p.subject} 利冲筛查报告 PDF 已下载` : '利冲筛查报告 PDF 已下载', 'success');
+}
+
+function openWaiver() {
+  const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+  const all = MockData.conflictChecks || [];
+  const cur = p ? all.find(c => c.project === p.id) : all.find(c => c.hit);
+  const detail = cur ? cur.detail : '项目组成员李雨欣的配偶持有华东建材 0.3% 股份，已超 0.1% 阈值。';
+  openModal({
+    title: '利益冲突复核与豁免审批',
+    width: 'max-w-xl',
+    danger: true,
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="p-3 bg-danger/5 border border-danger/30 rounded text-xs">
+          <div class="font-semibold text-danger">命中预警</div>
+          ${detail}
+        </div>
+        <div><label class="text-xs text-muted">处置方案</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm">
+            <option selected>更换成员（推荐）</option>
+            <option>暂停项目，待异议处理</option>
+            <option>申请豁免（合规总监 + 法务总监 + 客户合规官三人联签）</option>
+          </select>
+        </div>
+        <div><label class="text-xs text-muted">复核理由 / 备注</label>
+          <textarea rows="3" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm">建议立即将相关成员从项目组移除，由其他评级师代替。</textarea>
+        </div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded hover:bg-bg">取消</button>
+      <button onclick="closeModal();toast('已提交合规部，等待审批','success');" class="px-3 py-1.5 text-sm bg-danger text-white rounded hover:bg-red-700">提交</button>
+    `
+  });
+}
+
+function askAIConflict() {
+  const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+  const all = MockData.conflictChecks || [];
+  const cf = p ? all.filter(c => c.project === p.id) : all;
+  const header = p ? `【${p.subject} 利冲筛查】${cf.length} 项` : `【利冲筛查记录】${cf.length} 项`;
+  const ctx = header + '\n' +
+              cf.map(c => '· ' + c.id + ' ' + c.subject + ' · ' + c.subjectKind + ' · ' + (c.hit?'✗ 命中':'✓ 未命中') + '（' + c.detail + '）').join('\n');
+  AIAgent.setScene('kb-rag');
+  const ask = p
+    ? `请基于本项目（${p.subject}）的利冲筛查记录与 12 条规则逐条结果：① 是否存在命中项及合规处置建议 ② 12 类规则在本项目的覆盖情况 ③ 项目组在本项目应规避的 3 类风险 ④ 引用《信评委制度》第三十二条。`
+    : '请基于以上利冲筛查记录：① 命中项的合规处置建议（更换成员/暂停/豁免）② 豁免审批的三签字条件 ③ 12 类规则中命中频率最高的 TOP3 ④ 给项目组的 3 条预防性建议 ⑤ 引用《信评委制度》第三十二条 + 防火墙制度。';
+  AIAgent.send(ask, ctx);
+}
+
+mountLayout('conflict-check', renderMain);
+</script>
+</body>
+</html>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>客户经理协同（委托池）· CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== P1-7 客户经理协同（委托池）
+ * 市场部客户经理推送委托 → 评级师筛查 → 立项 闭环
+ * 评级师视角：监控委托池、筛查准入、分派项目 ============== */
+function renderMain() {
+  const leads = MockData.accountManagerLeads;
+  const statusMap = {
+    '委托待评级师筛查': { cls:'bg-warning/10 text-warning border-warning/30' },
+    '委托审查中':        { cls:'bg-brand-100 text-brand-700 border-brand-200' },
+    '委托已分派评级师':  { cls:'bg-success/10 text-success border-success/30' },
+    '已立项':           { cls:'bg-bg text-muted border-border' }
+  };
+  const urgencyMap = {
+    '高': 'text-danger font-semibold',
+    '中': 'text-warning',
+    '低': 'text-muted'
+  };
+  return `
+    <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+      <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span><strong class="text-ink">数据声明：</strong>客户名称为远东评级公开主体；客户经理姓名 / 委托编号 / 金额为 CCASCEA 演示样例。</span>
+    </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            客户经理协同（委托池）
+            <span class="text-xs text-muted font-normal ml-2">P1 · 市场部 → 评级业务部 业务起点闭环</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            评级业务真正起点：客户经理（市场部）从客户处获得委托线索 → 推送至本系统 → 评级业务部高级评级师筛查 →
+            <strong>合规审查（防火墙隔离）+ 利冲筛查 + 公共信用快查</strong> → 通过后正式立项。本页为评级师视角监控所有委托池。
+          </p>
+        </div>
+        <button onclick="askAIIntake()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手 · 委托审查要点</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">委托池总数</div><div class="num text-2xl font-bold text-brand-600 mt-1">${leads.length}</div></div>
+        <div class="border border-border rounded-md p-3 ${leads.filter(l=>l.status==='委托待评级师筛查').length>0?'bg-warning/5':''}"><div class="text-xs text-warning">待筛查</div><div class="num text-2xl font-bold text-warning mt-1">${leads.filter(l=>l.status==='委托待评级师筛查').length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">审查中</div><div class="num text-2xl font-bold text-brand-700 mt-1">${leads.filter(l=>l.status==='委托审查中').length}</div></div>
+        <div class="border border-border rounded-md p-3 bg-success/5"><div class="text-xs text-success">已分派</div><div class="num text-2xl font-bold text-success mt-1">${leads.filter(l=>l.status.includes('分派')||l.status==='已立项').length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本月委托总额</div><div class="num text-2xl font-bold text-brand-600 mt-1">¥${leads.reduce((s,l)=>s+l.amount,0)}<span class="text-xs"> 万</span></div></div>
+      </div>
+    </section>
+
+    <!-- 防火墙提醒 -->
+    <section class="bg-success/5 border border-success/30 rounded-lg p-4 mb-5">
+      <div class="flex items-start gap-3">
+        <span class="text-xl text-success">🛡</span>
+        <div class="flex-1 text-xs leading-relaxed">
+          <strong class="text-success">防火墙隔离生效：</strong>
+          市场部客户经理推送委托后，评级业务部仅可查看<strong>委托元信息（客户名 / 类型 / 金额范围）</strong>，
+          不可访问<strong>客户经理与客户的具体沟通记录、报价、合同条款</strong>。
+          仅在合规部审查通过后，评级师方可解锁完整委托材料。依据《信用评级业务程序指引》第六条防火墙制度。
+        </div>
+      </div>
+    </section>
+
+    <!-- 委托池清单 -->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          委托池（${leads.length} 项）
+        </h3>
+        <select class="text-xs px-2 py-1 border border-border rounded">
+          <option>全部状态</option>
+          <option>待筛查</option>
+          <option>审查中</option>
+          <option>已分派</option>
+          <option>已立项</option>
+        </select>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2.5">委托编号</th>
+          <th class="py-2.5">客户经理</th>
+          <th class="py-2.5">客户（受评对象）</th>
+          <th class="py-2.5">联系方式</th>
+          <th class="py-2.5">类型</th>
+          <th class="py-2.5 text-right">金额</th>
+          <th class="py-2.5 text-center">紧急度</th>
+          <th class="py-2.5">提交时间</th>
+          <th class="py-2.5">状态</th>
+          <th class="py-2.5">分派给</th>
+          <th class="py-2.5 pr-4 text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          ${leads.map(l => {
+            const s = statusMap[l.status] || { cls:'bg-bg text-muted' };
+            return `
+              <tr class="hover:bg-bg ${l.status==='委托待评级师筛查'?'bg-warning/5':''}">
+                <td class="px-4 py-2.5 num text-[11px]">${l.id}</td>
+                <td class="text-xs">${l.accountManager}</td>
+                <td class="text-sm font-medium">${l.client}</td>
+                <td class="text-xs text-muted num">${l.contactPhone}</td>
+                <td class="text-xs"><span class="px-1.5 py-0.5 rounded ${l.leadType==='新客户'?'bg-brand-100 text-brand-700':l.leadType==='存量续约'?'bg-success/10 text-success':'bg-warning/10 text-warning'} text-[10px]">${l.leadType}</span></td>
+                <td class="text-xs num text-right">¥${l.amount}</td>
+                <td class="text-center text-xs ${urgencyMap[l.urgency]||''}">${l.urgency}</td>
+                <td class="text-xs num text-muted">${l.filedAt}</td>
+                <td><span class="text-xs px-1.5 py-0.5 rounded-full border ${s.cls}">${l.status}</span></td>
+                <td class="text-xs">${l.assignedTo || '<span class="text-muted">—</span>'}</td>
+                <td class="text-right pr-4">
+                  ${l.status==='委托待评级师筛查'
+                    ? '<button onclick="screen(\''+l.id+'\')" class="text-xs text-brand-600 hover:underline">筛查 →</button>'
+                    : l.status==='委托已分派评级师'
+                    ? '<button onclick="toIntake(\''+l.id+'\')" class="text-xs text-brand-600 hover:underline">立项 →</button>'
+                    : '<a href="#" class="text-xs text-brand-600 hover:underline">详情</a>'}
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 协同动作流 -->
+    <section class="bg-white rounded-lg shadow-card p-5">
+      <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        市场部 → 评级部 协同流程
+      </h3>
+      <div class="grid grid-cols-7 gap-2 items-center text-center text-xs">
+        ${[
+          { n:'①', t:'客户经理推送', d:'市场部录入委托线索' },
+          { n:'②', t:'防火墙隔离',   d:'仅元信息可见' },
+          { n:'③', t:'评级师筛查',   d:'高级评级师审查' },
+          { n:'④', t:'三类合规校验', d:'公共信用 / 利冲 / 准入' },
+          { n:'⑤', t:'分派项目',     d:'评级师组建项目组' },
+          { n:'⑥', t:'电子委托协议', d:'签章 + 归档' },
+          { n:'⑦', t:'正式立项',     d:'进入①立项与准入工作流' }
+        ].map((s, i, arr) => `
+          <div class="flex items-center gap-1">
+            <div class="border border-border rounded-lg p-3 flex-1 hover:border-brand-300 hover:bg-brand-50/30">
+              <div class="num text-lg font-bold text-brand-600">${s.n}</div>
+              <div class="text-xs font-medium mt-1">${s.t}</div>
+              <div class="text-[10px] text-muted leading-snug mt-1">${s.d}</div>
+            </div>
+            ${i < arr.length - 1 ? '<span class="text-muted">→</span>' : ''}
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function screen(id) {
+  const l = MockData.accountManagerLeads.find(x => x.id === id);
+  if (!l) return;
+  openModal({
+    title: '委托筛查 · ' + l.client,
+    width: 'max-w-2xl',
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="border border-border rounded p-3 bg-bg/40 grid grid-cols-2 gap-3 text-xs">
+          <div><span class="text-muted">委托编号：</span><span class="num">${l.id}</span></div>
+          <div><span class="text-muted">客户经理：</span>${l.accountManager}</div>
+          <div><span class="text-muted">客户：</span>${l.client}</div>
+          <div><span class="text-muted">类型：</span>${l.leadType}</div>
+          <div><span class="text-muted">金额：</span>¥${l.amount} 万</div>
+          <div><span class="text-muted">紧急度：</span>${l.urgency}</div>
+        </div>
+        <div class="border border-warning/30 bg-warning/5 rounded p-3 text-xs">
+          <strong class="text-warning">三类合规校验（自动触发）：</strong>
+          ① 公共信用快查（KYC）─ 调用信用中国八大维度
+          ② 利益冲突筛查 ─ 12 类规则
+          ③ 项目组成员任职资格 ─ 证券业务从业人员登记
+        </div>
+        <div><label class="text-xs text-muted">分派至评级师</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm">
+            <option>王明远（评级业务一部，10y 经验）</option>
+            <option>李雨欣（评级业务一部，4y 经验）</option>
+            <option>张志强（评级业务部总监，15y 经验）</option>
+          </select>
+        </div>
+        <div><label class="text-xs text-muted">筛查意见</label>
+          <textarea rows="2" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm" placeholder="可选填..."></textarea>
+        </div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded">取消</button>
+      <button onclick="closeModal();toast('委托已分派 · 触发自动 KYC + 利冲 + 资格校验','success');setTimeout(()=>location.href='intake-stage.html',800)" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">分派 + 启动准入</button>
+    `
+  });
+}
+function toIntake(id) {
+  toast('正在跳转到立项工作台...', 'info');
+  setTimeout(()=>location.href='intake-stage.html', 600);
+}
+function askAIIntake() {
+  const leads = MockData.accountManagerLeads;
+  const pending = leads.filter(l => l.status === '委托待评级师筛查');
+  const ctx = '【委托池】' + leads.length + ' 项 · 待筛查 ' + pending.length + ' 项\n' +
+              pending.map(l => '· ' + l.id + ' ' + l.client + '（' + l.leadType + '）¥' + l.amount + '万 · ' + l.urgency).join('\n');
+  AIAgent.setScene('kb-rag');
+  AIAgent.send('请基于上述委托池：① 待筛查项目的优先级排序（按紧急度 / 金额 / 客户关系）② 每项的 KYC + 利冲风险预判 ③ 防火墙隔离合规校验 ④ 给评级师的分派建议（哪些主体适合哪个评级师）⑤ 引用《程序指引》第六条防火墙制度。', ctx);
+}
+
+mountLayout('account-manager', renderMain);
+</script>
+</body>
+</html>

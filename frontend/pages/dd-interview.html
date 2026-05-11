@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>访谈管理与录音转写 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 访谈管理 + 录音转写（FR-B-006 / B-007）============== */
+let currentTab = 'list';
+function renderMain() {
+  const list = MockData.ddInterviews;
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    ${(function(){
+      const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+      if (!p) {
+        return `<div class="bg-warning/10 border border-warning/30 rounded-md px-4 py-3 mb-4 text-sm text-warning flex items-center gap-2">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 9v2m0 4h.01m-6.93 1h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 17c-.77 1.33.19 3 1.73 3z"/></svg>
+          <strong>未选择项目</strong>：当前数据为通用演示，建议从 <a href="project-intake.html" class="text-brand-600 hover:underline font-medium">"我的项目"</a> 进入指定项目，查看该项目的数据。
+        </div>`;
+      }
+      return `<div class="bg-brand-50/60 border border-brand-200 rounded-md px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-2">
+        <div class="text-sm">
+          <span class="text-muted">当前项目：</span>
+          <strong class="text-brand-700">${p.subject}</strong>
+          <span class="text-xs text-muted ml-2">(${p.id} · ${p.industry || '—'})</span>
+        </div>
+        <a href="project-workbench.html?projectId=${p.id}" class="text-xs text-brand-600 hover:underline">← 返回项目工作台</a>
+      </div>`;
+    })()}
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            访谈管理 · 录音转写
+            <span class="text-xs text-muted font-normal">FR-B-006 · B-007</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            访谈计划、对象、提纲、时间、地点、是否实地的全流程管理；
+            ASR 录音自动转写为文字（支持发言人区分、敏感词识别、关键风险点自动标注）；输出可签字访谈记录。
+          </p>
+        </div>
+        <button onclick="askAIInterview()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本项目访谈</div><div class="num text-2xl font-bold text-brand-600 mt-1">${list.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已完成转写</div><div class="num text-2xl font-bold text-success mt-1">${list.filter(i=>i.transcribed).length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">总时长（分钟）</div><div class="num text-2xl font-bold text-brand-700 mt-1">${list.reduce((s,i)=>s+i.durationMin,0)}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">关键风险点</div><div class="num text-2xl font-bold text-warning mt-1">${list.reduce((s,i)=>s+i.riskFlags,0)}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">实地访谈</div><div class="num text-2xl font-bold text-success mt-1">${list.filter(i=>i.mode==='on-site').length}</div></div>
+      </div>
+    </section>
+
+    <!-- Tab -->
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="border-b border-border flex">
+        <button onclick="switchTab('list')" class="px-4 py-2.5 text-xs ${currentTab==='list'?'border-b-2 border-brand-600 text-brand-700 font-medium':'text-muted hover:text-ink'}">访谈列表</button>
+        <button onclick="switchTab('upload')" class="px-4 py-2.5 text-xs ${currentTab==='upload'?'border-b-2 border-brand-600 text-brand-700 font-medium':'text-muted hover:text-ink'}">录音上传 + ASR</button>
+        <button onclick="switchTab('record')" class="px-4 py-2.5 text-xs ${currentTab==='record'?'border-b-2 border-brand-600 text-brand-700 font-medium':'text-muted hover:text-ink'}">访谈记录与转写</button>
+        <button onclick="switchTab('outline')" class="px-4 py-2.5 text-xs ${currentTab==='outline'?'border-b-2 border-brand-600 text-brand-700 font-medium':'text-muted hover:text-ink'}">访谈提纲（自动生成）</button>
+      </div>
+      <div id="tab-content" class="p-5">${renderTab()}</div>
+    </section>
+  `;
+}
+
+function renderTab() {
+  if (currentTab === 'list') return renderList();
+  if (currentTab === 'upload') return renderUpload();
+  if (currentTab === 'record') return renderRecord();
+  return renderOutline();
+}
+
+/* ===== 录音上传 + ASR 转写流程（P1-4 增强）===== */
+function renderUpload() {
+  return `
+    <div class="space-y-5">
+      <!-- 上传区 -->
+      <div class="grid grid-cols-2 gap-5">
+        <div>
+          <div class="text-xs text-muted mb-2">关联访谈</div>
+          <select class="w-full px-3 py-2 border border-border rounded-md text-sm">
+            ${MockData.ddInterviews.map(i => `<option value="${i.id}">${i.id} · ${i.topic}</option>`).join('')}
+          </select>
+          <div class="border-2 border-dashed border-border rounded-lg p-8 text-center mt-4 hover:border-brand-300 cursor-pointer" onclick="uploadAudio()">
+            <div class="text-4xl text-muted mb-2">🎙️</div>
+            <div class="text-sm font-medium">上传访谈录音</div>
+            <div class="text-xs text-muted mt-1">支持 .mp3 / .wav / .m4a / .flac / .ogg · 单份 ≤ 200 MB · 时长 ≤ 4 小时</div>
+            <div class="text-[10px] text-muted mt-2">现场录音建议直接用智能体 APP 录制并上传（自动加密 + GPS 留痕）</div>
+          </div>
+          <div class="text-xs text-muted mt-3 leading-relaxed">
+            <strong>合规要求：</strong>录音上传后系统将自动加密；
+            ASR 转写完成后须由受访人电子签字方可入库；
+            原始录音保留 ≥ 15 年（《档案管理制度》）。
+          </div>
+        </div>
+        <div>
+          <div class="text-xs text-muted mb-2">ASR 引擎参数</div>
+          <div class="space-y-3 text-xs">
+            <div class="flex items-center justify-between border border-border rounded p-3">
+              <div><div class="font-medium">语种 / 方言</div><div class="text-[10px] text-muted">支持普通话 + 主流方言</div></div>
+              <select class="text-xs px-2 py-1 border border-border rounded"><option>普通话（标准）</option><option>江苏方言</option><option>粤语</option><option>四川方言</option></select>
+            </div>
+            <div class="flex items-center justify-between border border-border rounded p-3">
+              <div><div class="font-medium">发言人区分</div><div class="text-[10px] text-muted">声纹识别区分多说话人</div></div>
+              <input type="checkbox" checked />
+            </div>
+            <div class="flex items-center justify-between border border-border rounded p-3">
+              <div><div class="font-medium">敏感词识别</div><div class="text-[10px] text-muted">"承诺级别"等违规词</div></div>
+              <input type="checkbox" checked />
+            </div>
+            <div class="flex items-center justify-between border border-border rounded p-3">
+              <div><div class="font-medium">关键风险点自动标注</div><div class="text-[10px] text-muted">基于 AI 助手识别</div></div>
+              <input type="checkbox" checked />
+            </div>
+            <div class="flex items-center justify-between border border-border rounded p-3">
+              <div><div class="font-medium">原始录音留存</div><div class="text-[10px] text-muted">加密存储 ≥ 15 年（强制）</div></div>
+              <input type="checkbox" checked disabled />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ASR 处理状态 -->
+      <div class="bg-bg/40 border border-border rounded-lg p-4">
+        <div class="text-xs font-semibold mb-3">ASR 处理状态</div>
+        <div class="grid grid-cols-5 gap-2 items-center text-center text-xs">
+          ${[
+            { n:'①', t:'录音上传', d:'加密上传', done:true },
+            { n:'②', t:'ASR 转写', d:'引擎调用中', done:true },
+            { n:'③', t:'发言人区分', d:'声纹分离', done:true },
+            { n:'④', t:'风险标注', d:'AI 智能标注', done:true },
+            { n:'⑤', t:'受访人签字', d:'电子签字确认', done:false }
+          ].map((s, i, arr) => `
+            <div class="flex items-center gap-1">
+              <div class="border border-border rounded-lg p-3 flex-1 ${s.done?'border-success bg-success/5':'border-warning bg-warning/5'}">
+                <div class="num text-base font-bold ${s.done?'text-success':'text-warning'}">${s.done?'✓':s.n}</div>
+                <div class="text-xs font-medium mt-1">${s.t}</div>
+                <div class="text-[10px] text-muted leading-snug mt-0.5">${s.d}</div>
+              </div>
+              ${i < arr.length - 1 ? '<span class="text-muted text-sm">→</span>' : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- ASR 输出预览 -->
+      <div class="bg-white border border-border rounded-lg p-5">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-sm font-semibold">ASR 转写结果（实时）</div>
+          <div class="flex gap-2">
+            <button onclick="toast('已下载 SRT 字幕','success')" class="text-xs px-3 py-1 border border-border rounded hover:bg-bg">下载 SRT</button>
+            <button onclick="toast('已发送给受访人电子签字（链接 + 短信验证）','success')" class="text-xs px-3 py-1 bg-brand-600 text-white rounded hover:bg-brand-700">发送签字</button>
+          </div>
+        </div>
+        <div class="border border-border rounded p-3 bg-bg/40 text-xs leading-relaxed max-h-60 overflow-y-auto space-y-2">
+          <div><span class="text-muted num">[00:00:12]</span> <span class="text-brand-700 font-medium">分析师 王明远：</span>请介绍贵公司近三年的盈利情况。</div>
+          <div><span class="text-muted num">[00:00:18]</span> <span class="text-success font-medium">受访人 · CFO（脱敏）：</span>2023 至 2025 营收 CAGR 11.2%、净利润 CAGR 16.4%。</div>
+          <div><span class="text-muted num">[00:00:35]</span> <span class="text-brand-700 font-medium">分析师 王明远：</span>2025 年现金流相比 2024 下降明显，请问主要原因？</div>
+          <div><span class="text-muted num">[00:00:42]</span> <span class="text-success font-medium">受访人 · CFO（脱敏）：</span>主要是新能源项目集中投入，全年资本开支规模较大（演示样例）。<span class="bg-warning/30 px-1 rounded">关键风险点 #1：资本开支高位</span></div>
+          <div><span class="text-muted num">[00:01:08]</span> <span class="text-brand-700 font-medium">分析师 王明远：</span>那现有有息债务结构如何？</div>
+          <div><span class="text-muted num">[00:01:15]</span> <span class="text-success font-medium">受访人 · CFO（脱敏）：</span>长期占 62%，短期占 38%。<span class="bg-danger/30 px-1 rounded">关键风险点 #2：短期债务集中到期</span></div>
+          <div class="text-center text-muted py-2">— ASR 转写共 8200 字，仅展示节选 —</div>
+        </div>
+        <div class="mt-3 pt-3 border-t border-border flex items-center justify-between text-[11px] text-muted">
+          <span>声纹识别准确率 99.2% · 敏感词检测：未发现违规词</span>
+          <span>转写引擎：远东资信私有 ASR · 加密哈希 0x4f...c7d2</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function uploadAudio() {
+  toast('演示模式：选择本地 .wav 文件后将自动加密上传 + 启动 ASR 引擎', 'info', 2000);
+}
+
+function renderList() {
+  const list = MockData.ddInterviews;
+  return `
+    <div class="space-y-3">
+      ${list.map(i => `
+        <div class="border border-border rounded-lg p-4 hover:border-brand-300 hover:bg-brand-50/30 transition-colors">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-full ${i.mode==='on-site'?'bg-success/10 text-success':'bg-brand-100 text-brand-700'} flex items-center justify-center text-xs font-semibold flex-shrink-0">
+              ${i.mode==='on-site'?'实地':'远程'}
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <div class="text-sm font-medium">${i.topic}</div>
+                <div class="flex items-center gap-2">
+                  ${i.transcribed?'<span class="text-xs px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/30">已转写</span>':''}
+                  ${i.riskFlags>0?`<span class="text-xs px-1.5 py-0.5 rounded bg-warning/10 text-warning border border-warning/30">${i.riskFlags} 风险点</span>`:''}
+                </div>
+              </div>
+              <div class="text-xs text-muted mt-1">
+                <span>${i.when}</span> · <span>${i.durationMin} 分钟</span> · <span>${i.location}</span>
+              </div>
+              <div class="text-xs mt-2 text-ink/85 leading-relaxed">${i.summary}</div>
+              <div class="flex items-center gap-3 mt-2">
+                <button onclick="switchTab('record')" class="text-xs text-brand-600 hover:underline">查看转写 →</button>
+                <button onclick="toast('已通过电子签章发送给受访人','success')" class="text-xs text-brand-600 hover:underline">发送签字 →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderRecord() {
+  return `
+    <div class="grid grid-cols-3 gap-5">
+      <!-- 左：转写内容（带说话人）-->
+      <div class="col-span-2 space-y-3">
+        <div class="flex items-center gap-2 text-xs text-muted mb-2">
+          <span class="px-2 py-0.5 bg-brand-100 text-brand-700 rounded">CFO 访谈 · 财务与偿债</span>
+          <span>2026-04-22 14:00 · 时长 62 分</span>
+        </div>
+        <div class="border border-border rounded-lg p-4 bg-bg/40 space-y-3 max-h-[480px] overflow-y-auto">
+          <div class="flex items-start gap-2">
+            <span class="text-xs px-1.5 py-0.5 rounded bg-brand-100 text-brand-700 font-medium flex-shrink-0">分析师 王明远</span>
+            <div class="text-xs leading-relaxed">公司 2025 年的现金流相比 2024 年下降明显，请问主要原因是什么？</div>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-xs px-1.5 py-0.5 rounded bg-success/10 text-success font-medium flex-shrink-0">受访人 · CFO（脱敏）</span>
+            <div class="text-xs leading-relaxed">主要是新能源项目集中投入，全年资本开支规模较大（演示样例 · 具体金额详见底稿）。<span class="bg-warning/30 px-1 rounded">银行授信结构清晰（演示样例 · 详见底稿）</span>，备用额度充足。</div>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-xs px-1.5 py-0.5 rounded bg-brand-100 text-brand-700 font-medium flex-shrink-0">分析师 王明远</span>
+            <div class="text-xs leading-relaxed">那现有有息债务结构如何？短期债务集中度高吗？</div>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-xs px-1.5 py-0.5 rounded bg-success/10 text-success font-medium flex-shrink-0">受访人 · CFO（脱敏）</span>
+            <div class="text-xs leading-relaxed">我们长期有息债务占 62%，短期占 38%。流动比率约 1.45。<span class="bg-danger/30 px-1 rounded font-medium">2026 年存在短期债务集中到期事件（演示样例）</span>，已经在准备替换方案。</div>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-xs px-1.5 py-0.5 rounded bg-brand-100 text-brand-700 font-medium flex-shrink-0">分析师 王明远</span>
+            <div class="text-xs leading-relaxed">替换方案是哪些？是否有备选预案？</div>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-xs px-1.5 py-0.5 rounded bg-success/10 text-success font-medium flex-shrink-0">受访人 · CFO（脱敏）</span>
+            <div class="text-xs leading-relaxed">主要是新一期超短期融资券。备选包括银行流贷与保理等。</div>
+          </div>
+          <div class="text-center text-xs text-muted py-2">— 完整转写 8200 字，仅展示节选 —</div>
+        </div>
+        <div class="text-[11px] text-muted">
+          <strong>合规提示：</strong>录音原件留存于工作底稿（WP-B-001-INTERVIEW-002.wav）；转写文字稿待受访人电子签字后入库。
+        </div>
+      </div>
+
+      <!-- 右：风险点 + 摘要 -->
+      <div class="space-y-3">
+        <div class="bg-warning/5 border border-warning/30 rounded-lg p-4">
+          <div class="text-xs font-semibold text-warning mb-2">⚠ 关键风险点（自动标注 2 项）</div>
+          <ul class="text-xs space-y-2 leading-relaxed">
+            <li class="flex items-start gap-2"><span class="text-warning">●</span><div><strong>授信结构关注：</strong>银行授信备用充足（演示样例）；建议在底稿留痕。</div></li>
+            <li class="flex items-start gap-2"><span class="text-danger">●</span><div><strong>短期到期集中：</strong>存在短期债务集中到期（演示样例）；建议跟踪发行计划与备选方案。</div></li>
+          </ul>
+        </div>
+
+        <div class="border border-border rounded-lg p-4">
+          <div class="text-xs font-semibold mb-2">访谈摘要（AI 自动生成）</div>
+          <div class="text-xs leading-relaxed text-ink/85">
+            受访人 · CFO（脱敏）确认 2025 年现金流下降主因是新能源项目集中投入。授信结构清晰，备选融资方案完备。
+            短期债务占比 38%（约 ¥38 亿），其中 2026 年存在短期债务集中到期事件（演示样例），已在准备替换方案。
+          </div>
+          <div class="text-[10px] text-muted mt-3">摘要由 qwen3.6-max-preview 生成，已附原文页面引用。</div>
+        </div>
+
+        <div class="border border-border rounded-lg p-4">
+          <div class="text-xs font-semibold mb-2">敏感词检测</div>
+          <ul class="text-xs space-y-1 text-muted">
+            <li class="flex items-center gap-2"><span class="text-success">✓</span> 未出现"承诺级别"</li>
+            <li class="flex items-center gap-2"><span class="text-success">✓</span> 未出现"保证收益"</li>
+            <li class="flex items-center gap-2"><span class="text-success">✓</span> 未出现"按级别收费"</li>
+            <li class="flex items-center gap-2"><span class="text-success">✓</span> 未出现机密泄露词</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderOutline() {
+  return `
+    <div class="space-y-4">
+      <div class="text-xs text-muted">基于"工商企业评级方法 V03"自动生成访谈提纲，分析师可调整后导出 PDF 给受访人。</div>
+      <div class="space-y-3">
+        ${[
+          ['一、战略与经营定位', ['请介绍贵公司未来 3-5 年的战略方向与重点投入领域。','行业地位与市场份额变化趋势如何？','主营业务多元化与协同效应？']],
+          ['二、财务与偿债能力', ['现金流较去年下降的主因？','银行授信结构及未使用额度？','短期债务到期集中度与替换方案？','利息保障倍数与盈利稳定性？']],
+          ['三、风险管理与合规', ['信用风险三道防线如何运作？','重大对外担保与未决诉讼情况？','环保与安全生产合规？']],
+          ['四、ESG 与社会责任', ['ESG 报告范围一二三披露完整度？','双碳目标与绿色融资？','社会责任与员工权益？']],
+          ['五、关联与控制', ['股权结构与实控人？','重大关联交易披露？','与控股股东资金往来？']],
+          ['六、跟踪事项', ['过去一年是否发生重大资产重组、债务违约、关键人员变动？','未来 12 个月预期重大事项？']]
+        ].map(([t, qs], i) => `
+          <div class="border border-border rounded-lg p-4">
+            <div class="text-sm font-semibold text-brand-700 mb-2">${t}</div>
+            <ul class="text-xs space-y-1 leading-relaxed">
+              ${qs.map(q => `<li class="flex items-start gap-2"><span class="text-muted">●</span><span>${q}</span></li>`).join('')}
+            </ul>
+          </div>
+        `).join('')}
+      </div>
+      <div class="flex items-center gap-2 pt-3">
+        <button onclick="toast('提纲已导出 PDF','success')" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded">导出提纲</button>
+        <button onclick="toast('已发送至受访人邮箱','success')" class="text-xs px-3 py-1.5 border border-border rounded hover:bg-bg">发送给受访人</button>
+      </div>
+    </div>
+  `;
+}
+
+function switchTab(t) {
+  currentTab = t;
+  document.getElementById('app').innerHTML = '';
+  mountLayout('dd-interview', renderMain);
+}
+
+function askAIInterview() {
+  const list = MockData.ddInterviews;
+  const ctx = '【本项目访谈】' + list.length + ' 场 · 已转写 ' + list.filter(i=>i.transcribed).length + ' 场\n' +
+              '【关键风险点标注】' + list.reduce((s,i)=>s+i.riskFlags,0) + ' 处\n' +
+              '【访谈记录】' + list.map(i => '· ' + i.topic + '（' + i.durationMin + '分）：' + i.summary).join('\n');
+  AIAgent.setScene('dd-checklist-gen');
+  AIAgent.send('请基于以上访谈内容：① 关键风险点提炼 TOP5（含原文证据）② 受访人观点的可信度评估 ③ 缺失访谈对象建议（哪些岗位还需补充访谈）④ 后续问询提纲建议 ⑤ 评级师可信判断（基于访谈对评级的支持/反对）。', ctx);
+}
+
+mountLayout('dd-interview', renderMain);
+</script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>监管报送 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/mock-data.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/layout.js"></script>
+<script>
+function renderMain() {
+  const stats = MockData.regulatoryStats;
+  return `
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <h1 class="text-lg font-semibold flex items-center gap-2 mb-4">
+        <span class="w-1 h-5 bg-brand-600 rounded"></span>
+        监管报送 · 月度 / 季度报送底稿
+      </h1>
+      <p class="text-sm text-muted mb-5">依据国办发〔2026〕8号文与监管要求，自动按周期生成"双轨融合"执行情况报送底稿，确保任何报告均可追溯。</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div>
+          <label class="text-xs text-muted">报送周期</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">
+            <option>月度</option>
+            <option selected>季度</option>
+            <option>年度</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-muted">报送时点</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">
+            <option selected>2026年第一季度</option>
+            <option>2025年第四季度</option>
+            <option>2025年第三季度</option>
+          </select>
+        </div>
+        <div class="flex items-end">
+          <button onclick="toast('已生成报送底稿','success')" class="w-full px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700 text-sm">📄 生成报送底稿</button>
+        </div>
+      </div>
+
+      <!-- 关键统计 -->
+      <h2 class="text-sm font-semibold mb-3 flex items-center gap-2"><span class="w-1 h-4 bg-brand-600 rounded"></span>${stats.period} · 核心指标</h2>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <div class="border border-border rounded p-3"><div class="text-xs text-muted">完成评级</div><div class="num text-xl font-semibold text-brand-600 mt-1">${stats.totalRatings}</div></div>
+        <div class="border border-danger/30 rounded p-3 bg-danger/5"><div class="text-xs text-danger">D级熔断</div><div class="num text-xl font-semibold text-danger mt-1">${stats.fusedSubjects}</div></div>
+        <div class="border border-success/30 rounded p-3 bg-success/5"><div class="text-xs text-success">修复完成</div><div class="num text-xl font-semibold text-success mt-1">${stats.repairCases}</div></div>
+        <div class="border border-warning/30 rounded p-3 bg-warning/5"><div class="text-xs text-warning">异议处理</div><div class="num text-xl font-semibold text-warning mt-1">${stats.disputeCases}</div></div>
+        <div class="border border-border rounded p-3"><div class="text-xs text-muted">已发布报告</div><div class="num text-xl font-semibold text-brand-600 mt-1">${stats.publishedReports}</div></div>
+        <div class="border border-border rounded p-3"><div class="text-xs text-muted">平均交付</div><div class="num text-xl font-semibold text-brand-600 mt-1">${stats.avgCycleDays}d</div></div>
+      </div>
+
+      <!-- 季度趋势图 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+        <div class="border border-border rounded-lg p-4">
+          <div class="text-sm font-semibold mb-2">最近 6 个季度评级数量趋势</div>
+          <div id="quarterTrendChart" class="h-56"></div>
+        </div>
+        <div class="border border-border rounded-lg p-4">
+          <div class="text-sm font-semibold mb-2">最近 6 个季度合规事件分布</div>
+          <div id="complianceChart" class="h-56"></div>
+        </div>
+      </div>
+
+      <!-- 报送底稿预览 -->
+      <h2 class="text-sm font-semibold mb-3 flex items-center gap-2"><span class="w-1 h-4 bg-brand-600 rounded"></span>报送底稿预览（按监管口径）</h2>
+      <div class="border border-border rounded-lg overflow-hidden">
+        <div class="bg-bg px-4 py-3 border-b border-border flex items-center justify-between">
+          <div class="text-sm font-semibold">CCASCEA 监管报送底稿 · 2026Q1</div>
+          <div class="flex items-center gap-2">
+            <button onclick="toast('已导出 Excel','success')" class="text-xs px-3 py-1 border border-border rounded hover:bg-white">导出 Excel</button>
+            <button onclick="toast('已导出 PDF','success')" class="text-xs px-3 py-1 border border-border rounded hover:bg-white">导出 PDF</button>
+            <button onclick="toast('已上报至监管平台','success')" class="text-xs px-3 py-1 bg-brand-600 text-white rounded hover:bg-brand-700">提交监管</button>
+          </div>
+        </div>
+        <div class="p-5 text-sm">
+          <p class="leading-relaxed">尊敬的监管部门：</p>
+          <p class="mt-3 leading-relaxed">兹根据国办发〔2026〕8号文及《关于规范信用评级行业发展的若干意见》，远东资信本季度（${stats.period}）共完成主体评级与债项评级共 <span class="font-semibold text-brand-600 num">${stats.totalRatings}</span> 单，其中：</p>
+          <ul class="list-disc list-inside mt-3 space-y-1 text-ink/90 ml-2">
+            <li>主体评级 87 单 · 债项评级 37 单</li>
+            <li>触发 D 级熔断的主体 <span class="font-semibold text-danger num">${stats.fusedSubjects}</span> 家，均已严格按照"市场化评级不得评为 A 级"刚性规则执行</li>
+            <li>累计完成信用修复联动调整 <span class="font-semibold text-success num">${stats.repairCases}</span> 例</li>
+            <li>处理异议申诉 <span class="font-semibold text-warning num">${stats.disputeCases}</span> 例，全部在 7 个工作日内反馈受理结果</li>
+            <li>所有评级报告已机制化植入"双轨融合标准化声明"</li>
+            <li>所有跨域风险翻译均经分析师人工复核，全程审计可追溯</li>
+          </ul>
+          <p class="mt-3 leading-relaxed">本季度未发生数据合规事件、算法歧视事件、严重审计违规事件。</p>
+          <p class="mt-3 leading-relaxed">附件：①详细评级清单（Excel）②熔断主体专项报告（PDF）③异议申诉处理记录（Excel）④信用修复联动记录（Excel）</p>
+          <p class="mt-4 text-right text-muted text-xs">远东资信评估有限公司 · 2026-04-28</p>
+        </div>
+      </div>
+
+      <!-- 历史报送 -->
+      <h2 class="text-sm font-semibold mt-6 mb-3 flex items-center gap-2"><span class="w-1 h-4 bg-brand-600 rounded"></span>历史报送记录</h2>
+      <div class="border border-border rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left"><th class="px-4 py-2.5">报送编号</th><th class="py-2.5">周期</th><th class="py-2.5">提交时间</th><th class="py-2.5">状态</th><th class="py-2.5 pr-4 text-right">操作</th></tr></thead>
+          <tbody class="divide-y divide-border">
+            <tr class="hover:bg-bg"><td class="px-4 py-3 num text-xs">REG-2025Q4</td><td>2025年第四季度</td><td class="text-xs text-muted">2026-01-10</td><td><span class="text-xs px-2 py-0.5 rounded bg-success/10 text-success border border-success/30">已接收</span></td><td class="text-right pr-4"><button onclick="viewHistory('REG-2025Q4')" class="text-xs text-brand-600 hover:underline">查看</button></td></tr>
+            <tr class="hover:bg-bg"><td class="px-4 py-3 num text-xs">REG-2025Q3</td><td>2025年第三季度</td><td class="text-xs text-muted">2025-10-12</td><td><span class="text-xs px-2 py-0.5 rounded bg-success/10 text-success border border-success/30">已接收</span></td><td class="text-right pr-4"><button onclick="viewHistory(this.closest('tr').querySelector('.num').textContent)" class="text-xs text-brand-600 hover:underline">查看</button></td></tr>
+            <tr class="hover:bg-bg"><td class="px-4 py-3 num text-xs">REG-2025Q2</td><td>2025年第二季度</td><td class="text-xs text-muted">2025-07-08</td><td><span class="text-xs px-2 py-0.5 rounded bg-success/10 text-success border border-success/30">已接收</span></td><td class="text-right pr-4"><button onclick="viewHistory(this.closest('tr').querySelector('.num').textContent)" class="text-xs text-brand-600 hover:underline">查看</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+function viewHistory(regId) {
+  // 历史报送数据
+  const meta = {
+    'REG-2025Q4': { period: '2025年第四季度', sub: '2026-01-10', total: 132, fused: 4, repair: 22, dispute: 2 },
+    'REG-2025Q3': { period: '2025年第三季度', sub: '2025-10-12', total: 118, fused: 3, repair: 15, dispute: 4 },
+    'REG-2025Q2': { period: '2025年第二季度', sub: '2025-07-08', total: 105, fused: 2, repair: 12, dispute: 1 }
+  };
+  const m = meta[regId] || { period: regId, sub: '—', total: 0, fused: 0, repair: 0, dispute: 0 };
+  openModal({
+    title: `历史报送详情 · ${regId}`,
+    width: 'max-w-2xl',
+    content: `
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div><span class="text-muted">报送编号：</span><span class="num font-medium">${regId}</span></div>
+          <div><span class="text-muted">报送周期：</span>${m.period}</div>
+          <div><span class="text-muted">提交时间：</span><span class="num">${m.sub}</span></div>
+          <div><span class="text-muted">监管接收状态：</span><span class="text-success font-medium">✓ 已接收</span></div>
+        </div>
+        <div class="border-t border-border pt-3">
+          <div class="font-semibold text-sm mb-3">核心指标</div>
+          <div class="grid grid-cols-4 gap-3">
+            <div class="border border-border rounded p-3 text-center"><div class="text-xs text-muted">完成评级</div><div class="num text-xl font-semibold text-brand-600 mt-1">${m.total}</div></div>
+            <div class="border border-danger/30 rounded p-3 text-center bg-danger/5"><div class="text-xs text-danger">D级熔断</div><div class="num text-xl font-semibold text-danger mt-1">${m.fused}</div></div>
+            <div class="border border-success/30 rounded p-3 text-center bg-success/5"><div class="text-xs text-success">修复完成</div><div class="num text-xl font-semibold text-success mt-1">${m.repair}</div></div>
+            <div class="border border-warning/30 rounded p-3 text-center bg-warning/5"><div class="text-xs text-warning">异议处理</div><div class="num text-xl font-semibold text-warning mt-1">${m.dispute}</div></div>
+          </div>
+        </div>
+        <div class="border-t border-border pt-3 text-xs text-muted">
+          <div>· 监管接收回执编号：RECV-${regId.replace('REG-','')}-001</div>
+          <div>· 监管反馈意见：本季度报送数据完整、合规要求满足，无整改要求</div>
+          <div>· 区块链 hash：<span class="num">0x${Math.random().toString(16).slice(2,14)}...${Math.random().toString(16).slice(2,8)}</span></div>
+        </div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal();toast('已下载历史报送 PDF','success')" class="px-3 py-1.5 text-sm border border-border rounded hover:bg-bg">下载 PDF</button>
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded hover:bg-brand-700">关闭</button>
+    `
+  });
+}
+mountLayout('monitoring-report', renderMain);
+
+setTimeout(() => {
+  const t = document.getElementById('quarterTrendChart');
+  if (t) {
+    const c = echarts.init(t);
+    c.setOption({
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['完成评级','已发布报告'], textStyle: { fontSize: 11 }, top: 0 },
+      grid: { left: 35, right: 15, top: 30, bottom: 25 },
+      xAxis: { type: 'category', data: ['24Q4','25Q1','25Q2','25Q3','25Q4','26Q1'], axisLine: { lineStyle: { color: '#CBD5E1' } } },
+      yAxis: { type: 'value', axisLine: { show: false }, splitLine: { lineStyle: { color: '#F1F5F9' } } },
+      series: [
+        { name: '完成评级', type: 'line', smooth: true, data: [88, 95, 105, 118, 132, 124], itemStyle: {color:'#1F497D'}, areaStyle: {color:'rgba(31,73,125,0.10)'} },
+        { name: '已发布报告', type: 'line', smooth: true, data: [85, 92, 102, 116, 130, 124], itemStyle: {color:'#4A90E2'}, lineStyle:{type:'dashed'} }
+      ]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+  const c2el = document.getElementById('complianceChart');
+  if (c2el) {
+    const c = echarts.init(c2el);
+    c.setOption({
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['D级熔断','信用修复','异议处理'], textStyle: { fontSize: 11 }, top: 0 },
+      grid: { left: 30, right: 15, top: 30, bottom: 25 },
+      xAxis: { type: 'category', data: ['24Q4','25Q1','25Q2','25Q3','25Q4','26Q1'] },
+      yAxis: { type: 'value', axisLine: { show: false }, splitLine: { lineStyle: { color: '#F1F5F9' } } },
+      series: [
+        { name: 'D级熔断',  type: 'bar', data: [3,2,2,3,4,5],   itemStyle: { color: '#DC2626' }, barWidth: 12 },
+        { name: '信用修复', type: 'bar', data: [10,12,12,15,22,18], itemStyle: { color: '#16A34A' }, barWidth: 12 },
+        { name: '异议处理', type: 'bar', data: [1,1,1,4,2,3],   itemStyle: { color: '#F59E0B' }, barWidth: 12 }
+      ]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+}, 100);
+</script>
+</body>
+</html>

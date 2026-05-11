@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>客户专用门户 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260511a"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260511a" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260511a"></script>
+<script src="../assets/js/mock-data.js?v=20260511a"></script>
+<script src="../assets/js/copy-corpus.js?v=20260511a"></script>
+<script src="../assets/js/common.js?v=20260511a"></script>
+<script src="../assets/js/layout.js?v=20260511a"></script>
+<script src="../assets/js/prompts.js?v=20260511a"></script>
+<script src="../assets/js/ai-agent.js?v=20260511a"></script>
+<script>
+/* ============== P0-3 客户专用门户 ==============
+ *  · 项目模式：本项目客户反馈 detail view（受评主体 + 委托方联系人 + 5 工作日 SLA + 反馈时间线 + 评级师回复 + 行动区）
+ *  · 全局模式：全公司客户反馈台账 list view
+ * ====================================================== */
+function renderMain() {
+  const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+  const allCf = MockData.clientFeedback || [];
+  if (p) return renderDetailView(p, allCf);
+  return renderListView(allCf);
+}
+
+const typeMap = {
+  '已收悉无异议': { cls:'bg-success/10 text-success border-success/30' },
+  '反馈意见':     { cls:'bg-brand-100 text-brand-700 border-brand-200' },
+  '补充材料':     { cls:'bg-warning/10 text-warning border-warning/30' },
+  '复评申请':     { cls:'bg-danger/10 text-danger border-danger/30' }
+};
+
+function renderDetailView(p, allCf) {
+  const projectCf = allCf.filter(c => c.project === p.id || c.subject === p.subject);
+  const sorted = [...projectCf].sort((a,b) => (a.filedAt < b.filedAt ? 1 : -1));
+  const subj = (MockData.subjects || []).find(s => s.name === p.subject) || {};
+  const labels = subj.creditLabels || [];
+  const leadMember = (p.team && p.team[0]) || {};
+  const leadName = typeof leadMember === 'object' ? leadMember.name : leadMember;
+
+  const pending = sorted.filter(c => !c.respondedAt);
+  const responded = sorted.filter(c => c.respondedAt);
+
+  const noticeBanner = `
+    <div class="bg-success/5 border-l-4 border-success rounded-md px-4 py-3 mb-4 text-xs leading-relaxed">
+      <div class="flex items-start gap-2">
+        <span class="text-success font-bold">💰 合规明示</span>
+        <div class="flex-1 text-ink/85">
+          <strong>GB/T 45255-2025 第十一条：</strong>客户提出反馈意见 / 补料 / 复评申请 / 信用修复联动重新评级，<strong class="text-success">一律免费</strong>。
+        </div>
+      </div>
+    </div>`;
+
+  const header = `
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between flex-wrap gap-2">
+        <div class="min-w-0">
+          <h1 class="text-lg font-semibold flex items-center gap-2 flex-wrap">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            <span class="text-brand-700">${p.subject}</span>
+            <span class="text-muted">·</span>
+            客户专用门户
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">项目级 · detail view</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            本页展示本项目（<strong class="text-ink">${p.id}</strong>）的客户反馈往来：委托方联系人、5 工作日 SLA、反馈时间线、附件、评级师回复。
+            依据《程序指引》第三十五至三十八条。
+          </p>
+          <div class="text-[11px] mt-2 flex items-center gap-3">
+            <a href="project-workbench.html?projectId=${p.id}" class="text-brand-600 hover:underline">← 返回项目工作台</a>
+            <span class="text-muted">|</span>
+            <a href="client-portal.html" class="text-brand-600 hover:underline">查看全公司客户反馈 →</a>
+          </div>
+        </div>
+        <button onclick="askAIClient()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90 flex-shrink-0">AI 助手 · 客户响应模板</button>
+      </div>
+    </section>`;
+
+  const subjectCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5 overflow-hidden">
+      <div class="bg-gradient-to-r from-brand-600 to-brand-700 text-white px-5 py-4">
+        <div class="text-xs text-white/70 mb-1">受评主体（委托方）</div>
+        <div class="text-lg font-bold flex items-center gap-2 flex-wrap">
+          <span>${p.subject}</span>
+          ${labels.map(l => `<span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full border border-white/30">${l}</span>`).join('')}
+        </div>
+        <div class="text-[11px] text-white/85 mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          <span>USCC · <span class="num">${subj.uscc || '—'}</span></span>
+          <span>行业 · ${p.industry || '—'}</span>
+          <span>评级类型 · ${p.ratingType || (Array.isArray(p.ratingTypes) ? p.ratingTypes.join('+') : '—')}</span>
+          <span>项目组组长 · ${leadName || '—'}</span>
+          <span>立项 · ${p.createdAt || '—'}</span>
+        </div>
+      </div>
+    </section>`;
+
+  if (sorted.length === 0) {
+    return `
+      ${noticeBanner}
+      ${header}
+      ${subjectCard}
+      <section class="bg-white rounded-lg shadow-card px-5 py-16 text-center">
+        <div class="text-4xl mb-3">🚪</div>
+        <div class="text-sm font-medium">本项目尚无客户反馈</div>
+        <div class="text-xs text-muted mt-2">评级报告推送给委托方后，反馈会自动汇入此处</div>
+      </section>
+    `;
+  }
+
+  // 元数据卡 + 总体结论
+  const latest = sorted[0];
+  const isUrgent = pending.length > 0 && pending.some(c => c.type === '复评申请' || c.type === '补充材料');
+  const verdictCls = isUrgent ? 'bg-warning/5 border-warning/40'
+                   : pending.length > 0 ? 'bg-brand-50 border-brand-300'
+                   : 'bg-success/5 border-success/40';
+  const verdictIcon = isUrgent ? '⚠' : pending.length > 0 ? '◐' : '✓';
+  const verdictText = isUrgent ? `紧急 · ${pending.length} 条待响应（含复评/补料）`
+                    : pending.length > 0 ? `待响应 · ${pending.length} 条`
+                    : `已闭环 · ${responded.length} 条全部已回复`;
+  const verdictTone = isUrgent ? 'text-warning' : pending.length > 0 ? 'text-brand-700' : 'text-success';
+
+  const metaCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between flex-wrap gap-2">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          本项目客户反馈状态
+        </h2>
+        <span class="text-[11px] num text-muted">最近反馈：${latest.filedAt} · ${latest.type}</span>
+      </div>
+      <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2 border-2 ${verdictCls} rounded-lg p-4 flex items-center gap-4">
+          <div class="text-4xl ${verdictTone} font-bold">${verdictIcon}</div>
+          <div class="flex-1">
+            <div class="text-base font-semibold ${verdictTone}">${verdictText}</div>
+            <div class="text-xs text-muted mt-1 leading-snug">${latest.content.slice(0, 80)}${latest.content.length > 80 ? '...' : ''}</div>
+            <div class="mt-2 flex items-center gap-2 flex-wrap">
+              ${Object.keys(typeMap).map(k => {
+                const c = sorted.filter(x => x.type === k).length;
+                if (c === 0) return '';
+                return `<span class="text-[10px] px-2 py-0.5 rounded border ${typeMap[k].cls}">${k}：${c}</span>`;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span class="text-muted">委托方联系人</span><span class="font-medium">${latest.contact || '—'}</span>
+          </div>
+          ${latest.contactPhone ? `<div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span class="text-muted">联系电话</span><span class="num">${latest.contactPhone}</span>
+          </div>` : ''}
+          ${latest.contactEmail ? `<div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span class="text-muted">邮箱</span><span class="text-xs">${latest.contactEmail}</span>
+          </div>` : ''}
+          <div class="flex items-center justify-between">
+            <span class="text-muted">本项目反馈总数</span><span class="num font-medium">${sorted.length}</span>
+          </div>
+        </div>
+      </div>
+    </section>`;
+
+  // 5 工作日 SLA 状态卡
+  const slaCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          5 工作日 SLA 响应
+        </h2>
+        <span class="text-[11px] text-success">合规依据《程序指引》第三十六条</span>
+      </div>
+      <div class="p-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="border border-border rounded p-3">
+          <div class="text-xs text-muted">本项目反馈</div>
+          <div class="num text-2xl font-bold text-brand-600 mt-1">${sorted.length}</div>
+        </div>
+        <div class="border border-border rounded p-3 ${pending.length > 0 ? 'bg-warning/5 border-warning/30' : ''}">
+          <div class="text-xs ${pending.length > 0 ? 'text-warning' : 'text-muted'}">待响应</div>
+          <div class="num text-2xl font-bold ${pending.length > 0 ? 'text-warning' : 'text-success'} mt-1">${pending.length}</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="text-xs text-muted">已响应</div>
+          <div class="num text-2xl font-bold text-success mt-1">${responded.length}</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="text-xs text-muted">平均响应时长</div>
+          <div class="num text-2xl font-bold text-brand-700 mt-1">${responded.length > 0 ? (responded.reduce((s,c)=>s+(c.responseHours||0),0)/responded.length).toFixed(1) : '—'} <span class="text-xs font-normal">h</span></div>
+        </div>
+      </div>
+    </section>`;
+
+  // 反馈时间线 cards
+  const feedbackTimeline = `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          反馈时间线（${sorted.length}）
+        </h2>
+      </div>
+      <div class="p-5 space-y-4">
+        ${sorted.map(c => {
+          const t = typeMap[c.type] || { cls:'bg-bg text-muted border-border' };
+          const replied = !!c.respondedAt;
+          const cardCls = c.type === '复评申请' ? 'border-danger/30 bg-danger/5'
+                        : c.type === '补充材料' ? 'border-warning/30 bg-warning/5'
+                        : 'border-border';
+          return `
+            <div class="border ${cardCls} rounded-lg p-4">
+              <div class="flex items-start justify-between flex-wrap gap-2 mb-2">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-medium num">${c.id}</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded border ${t.cls}">${c.type}</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-bg border border-border text-muted">${c.channel}</span>
+                  ${replied ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/30">✓ 已响应</span>' : '<span class="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning border border-warning/30">待响应</span>'}
+                  ${c.linkedAppealId ? `<a href="appeal-flow.html?projectId=${p.id}" class="text-[10px] text-brand-600 hover:underline">关联复评 ${c.linkedAppealId} →</a>` : ''}
+                </div>
+                <span class="text-[10px] num text-muted">${c.filedAt}</span>
+              </div>
+              <div class="text-sm leading-relaxed text-ink/85 mb-2">${c.content}</div>
+              ${c.attachments && c.attachments.length ? `
+                <div class="space-y-1 mb-2">
+                  ${c.attachments.map(a => `
+                    <div class="flex items-center gap-2 p-1.5 bg-white border border-border rounded text-xs">
+                      <span>📎</span>
+                      <span class="flex-1">${a.name}</span>
+                      <span class="num text-muted">${a.size}</span>
+                      <button onclick="toast('已下载','success')" class="text-brand-600 hover:underline">下载</button>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+              <div class="text-[11px] text-muted mt-1">委托方：${c.contact}${c.contactPhone ? ' · ' + c.contactPhone : ''}</div>
+              ${replied ? `
+                <div class="mt-3 pt-3 border-t border-border/60">
+                  <div class="flex items-center gap-2 text-[11px] text-success mb-1">
+                    <span class="w-5 h-5 rounded-full bg-success text-white flex items-center justify-center text-[10px]">✓</span>
+                    <strong>${c.respondedBy}</strong>
+                    <span class="text-muted">回复于</span>
+                    <span class="num">${c.respondedAt}</span>
+                    <span class="text-muted">（${c.responseHours}h，${c.responseHours < 24 ? '< 5 工作日 ✓' : '⚠ 超 5 工作日'}）</span>
+                  </div>
+                  <div class="text-xs text-ink/80 leading-relaxed pl-7">${c.response}</div>
+                </div>
+              ` : `
+                <div class="mt-3 pt-3 border-t border-border/60 flex items-center justify-between">
+                  <span class="text-[11px] text-warning">⏳ 待项目组响应（合规 SLA：5 工作日内）</span>
+                  <button onclick="respond('${c.id}')" class="text-xs px-3 py-1 bg-brand-600 text-white rounded hover:bg-brand-700">回复客户 →</button>
+                </div>
+              `}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </section>`;
+
+  // 行动区
+  const actions = `
+    <section class="bg-bg/40 border border-border rounded-lg p-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="text-xs text-muted">
+        ${pending.length > 0 ? `还有 ${pending.length} 条反馈待响应，请在 5 工作日内处理。` : '本项目所有反馈已闭环。'}
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        ${pending.length > 0 ? `<button onclick="respond('${pending[0].id}')" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded hover:bg-brand-700">回复最新待响应反馈</button>` : ''}
+        <button onclick="toast('已推送评级报告至委托方','success')" class="text-xs px-3 py-1.5 border border-border rounded hover:bg-white">推送最新评级报告</button>
+        <button onclick="toast('客户沟通日志已导出','success')" class="text-xs px-3 py-1.5 border border-border rounded hover:bg-white">导出沟通日志</button>
+      </div>
+    </section>
+
+    <section class="bg-bg/40 border border-border rounded-lg p-4 mt-5 text-xs leading-relaxed text-muted">
+      <strong class="text-ink">合规 SLA 提示（《程序指引》第三十五至三十八条）：</strong>
+      ① 评级结果送达后委托方需在评级协议约定时间内反馈；
+      ② 复评申请须在约定时间内提供充分有效补充材料；
+      ③ 银行间债券市场非金融企业债务融资工具复评申请受理后 <strong class="text-danger">5 个工作日</strong>内召开信评委；
+      ④ 复评仅限一次，复评等级为最终信用等级；
+      ⑤ <strong class="text-success">所有反馈处理免费</strong>（GB/T 45255-2025 第十一条）。
+    </section>`;
+
+  return `
+    ${noticeBanner}
+    ${header}
+    ${subjectCard}
+    ${metaCard}
+    ${slaCard}
+    ${feedbackTimeline}
+    ${actions}
+  `;
+}
+
+function renderListView(cf) {
+  return `
+    <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+      <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span><strong class="text-ink">数据声明：</strong>客户名称为远东评级公开主体；反馈内容为 CCASCEA 演示样例。</span>
+    </div>
+
+    <div class="bg-success/5 border-l-4 border-success rounded-md px-4 py-3 mb-4 text-xs leading-relaxed">
+      <div class="flex items-start gap-2">
+        <span class="text-success font-bold">💰 合规明示</span>
+        <div class="flex-1 text-ink/85">
+          <strong>GB/T 45255-2025 第十一条：</strong>客户提出反馈意见 / 补料 / 复评申请 / 信用修复联动重新评级，<strong class="text-success">一律免费</strong>。
+        </div>
+      </div>
+    </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between flex-wrap gap-2">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2 flex-wrap">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            客户专用门户（评级师视图）
+            <span class="text-xs text-muted font-normal ml-2">P0 · FR-D-008 反馈与复评</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-bg text-muted border border-border">全公司反馈台账 · list view</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            委托方 / 受评对象通过<strong>独立客户门户</strong>接收评级报告反馈、补充材料、发起复评申请。
+            本页为评级师监控视图：实时看到客户提交的反馈，5 个工作日内须响应（《程序指引》第三十六条）。
+          </p>
+        </div>
+        <button onclick="askAIClient()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90 flex-shrink-0">AI 助手 · 客户响应模板</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本月客户反馈</div><div class="num text-2xl font-bold text-brand-600 mt-1">${cf.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已收悉无异议</div><div class="num text-2xl font-bold text-success mt-1">${cf.filter(c=>c.type==='已收悉无异议').length}</div></div>
+        <div class="border border-border rounded-md p-3 ${cf.filter(c=>c.type==='补充材料').length>0?'bg-warning/5':''}"><div class="text-xs text-muted">补充材料待评审</div><div class="num text-2xl font-bold text-warning mt-1">${cf.filter(c=>c.type==='补充材料').length}</div></div>
+        <div class="border border-border rounded-md p-3 ${cf.filter(c=>c.type==='复评申请').length>0?'bg-danger/5':''}"><div class="text-xs text-muted">复评申请</div><div class="num text-2xl font-bold text-danger mt-1">${cf.filter(c=>c.type==='复评申请').length}</div></div>
+        <div class="border border-border rounded-md p-3 bg-success/5"><div class="text-xs text-success">5 工作日响应率</div><div class="num text-2xl font-bold text-success mt-1">${cf.length > 0 ? Math.round(cf.filter(c=>c.respondedAt && c.responseHours < 120).length / cf.length * 100) : 100}%</div></div>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        客户门户 4 大功能（委托方视角）
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+        ${[
+          ['📥 接收评级报告','评级总监签字 + 公章后自动推送给委托方<br/>委托方需在 5 工作日内反馈意见'],
+          ['📎 补充材料','委托方上传补充财务数据、关联交易披露、资质证明等<br/>评级师实时收到通知'],
+          ['🔄 反馈意见','无异议 / 反馈段落表述意见 / 数据更新建议<br/>项目组评估采纳 / 部分采纳 / 不采纳'],
+          ['⚖️ 复评申请','对评级结果有异议时发起 · 仅限一次<br/>5 工作日内信评委召开（程序指引第三十六条）']
+        ].map(([t,d]) => `
+          <div class="border border-border rounded p-3 hover:border-brand-300 hover:bg-brand-50/30">
+            <div class="text-xl mb-2">${t.split(' ')[0]}</div>
+            <div class="text-sm font-medium">${t.split(' ').slice(1).join(' ')}</div>
+            <div class="text-[10px] text-muted leading-snug mt-2">${d}</div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          客户反馈记录（${cf.length} 条）
+        </h3>
+        <input type="text" placeholder="搜索主体 / 反馈类型..." class="text-xs px-2 py-1 border border-border rounded w-48" />
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2.5">编号</th>
+          <th class="py-2.5">受评对象</th>
+          <th class="py-2.5">联系人</th>
+          <th class="py-2.5">渠道</th>
+          <th class="py-2.5">提交时间</th>
+          <th class="py-2.5">类型</th>
+          <th class="py-2.5">内容摘要</th>
+          <th class="py-2.5">状态</th>
+          <th class="py-2.5 pr-4 text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          ${cf.map(c => {
+            const t = typeMap[c.type] || { cls:'bg-bg text-muted' };
+            const proj = c.project || (((MockData.projects || []).find(pp => pp.subject === c.subject) || {}).id);
+            return `
+              <tr class="hover:bg-bg ${c.type==='复评申请'?'bg-danger/5':''}">
+                <td class="px-4 py-2.5 num text-[11px]">${c.id}</td>
+                <td class="text-sm font-medium">${c.subject}</td>
+                <td class="text-xs">${c.contact}</td>
+                <td class="text-xs"><span class="px-1.5 py-0.5 rounded ${c.channel==='客户专用门户'?'bg-brand-100 text-brand-700':'bg-bg text-muted'} text-[10px]">${c.channel}</span></td>
+                <td class="text-xs num text-muted">${c.filedAt}</td>
+                <td><span class="text-xs px-1.5 py-0.5 rounded border ${t.cls}">${c.type}</span></td>
+                <td class="text-xs leading-snug max-w-md">${c.content}</td>
+                <td class="text-xs">${c.status}</td>
+                <td class="text-right pr-4">
+                  ${proj ? `<a href="client-portal.html?projectId=${proj}" class="text-xs text-brand-600 hover:underline">详情 →</a>` : `<button onclick="respond('${c.id}')" class="text-xs text-brand-600 hover:underline">${c.type==='复评申请'?'排期信评委':'回复客户'} →</button>`}
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="bg-bg/40 border border-border rounded-lg p-4 mt-5 text-xs leading-relaxed text-muted">
+      <strong class="text-ink">合规 SLA 提示（《程序指引》第三十五至三十八条）：</strong>
+      ① 评级结果送达后委托方需在评级协议约定时间内反馈；
+      ② 复评申请须在约定时间内提供充分有效补充材料；
+      ③ 银行间债券市场非金融企业债务融资工具复评申请受理后 <strong class="text-danger">5 个工作日</strong>内召开信评委；
+      ④ 复评仅限一次，复评等级为最终信用等级。
+    </section>
+  `;
+}
+
+function respond(id) {
+  const c = MockData.clientFeedback.find(x => x.id === id);
+  if (!c) return;
+  openModal({
+    title: '回复客户 · ' + c.subject,
+    width: 'max-w-2xl',
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="border border-border rounded p-3 bg-bg/40 text-xs">
+          <div class="font-medium">${c.contact} · ${c.type}</div>
+          <div class="text-muted leading-relaxed mt-1">${c.content}</div>
+        </div>
+        <div><label class="text-xs text-muted">回复内容 <span class="text-danger">*</span></label>
+          <textarea rows="4" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm" placeholder="请输入回复内容..."></textarea>
+        </div>
+        <div><label class="text-xs text-muted">处理动作</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm">
+            <option>采纳客户意见，修改报告</option>
+            <option>部分采纳，标注未采纳理由</option>
+            <option>不采纳，给出说明</option>
+            <option>转信评委复评（针对复评申请）</option>
+          </select>
+        </div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded">取消</button>
+      <button onclick="closeModal();toast('已回复客户 · 已留痕审计链','success')" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">提交回复</button>
+    `
+  });
+}
+
+function askAIClient() {
+  const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+  const all = MockData.clientFeedback || [];
+  const cf = p ? all.filter(c => c.project === p.id || c.subject === p.subject) : all;
+  const header = p ? `【${p.subject} 客户反馈】${cf.length} 条` : `【客户反馈记录】${cf.length} 条`;
+  const ctx = header + '\n' + cf.map(c => '· ' + c.subject + '（' + c.type + '）：' + c.content.slice(0,50) + '...').join('\n');
+  AIAgent.setScene('kb-rag');
+  const ask = p
+    ? `请基于本项目（${p.subject}）的客户反馈：① 反馈类型与处理优先级 ② 5 工作日 SLA 风险 ③ 给评级师的回复模板（针对当前反馈类型）④ 引用《程序指引》第三十五至三十八条。`
+    : '请基于以上客户反馈：① 反馈类型分布（无异议/反馈/补料/复评）② 5 工作日 SLA 风险（哪些反馈临近超时）③ 给评级师的回复模板 TOP3 ④ 复评申请的合规处理流程 ⑤ 免费政策提醒（第十一条）。';
+  AIAgent.send(ask, ctx);
+}
+
+mountLayout('client-portal', renderMain);
+</script>
+</body>
+</html>

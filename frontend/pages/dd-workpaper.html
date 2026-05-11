@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>工作底稿管理 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 工作底稿管理（FR-B-008）============== */
+function renderMain() {
+  const wps = MockData.ddWorkpapers;
+  const totalItems = wps.reduce((s,w)=>s+w.items,0);
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    ${(function(){
+      const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+      if (!p) {
+        return `<div class="bg-warning/10 border border-warning/30 rounded-md px-4 py-3 mb-4 text-sm text-warning flex items-center gap-2">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 9v2m0 4h.01m-6.93 1h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 17c-.77 1.33.19 3 1.73 3z"/></svg>
+          <strong>未选择项目</strong>：当前数据为通用演示，建议从 <a href="project-intake.html" class="text-brand-600 hover:underline font-medium">"我的项目"</a> 进入指定项目，查看该项目的数据。
+        </div>`;
+      }
+      return `<div class="bg-brand-50/60 border border-brand-200 rounded-md px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-2">
+        <div class="text-sm">
+          <span class="text-muted">当前项目：</span>
+          <strong class="text-brand-700">${p.subject}</strong>
+          <span class="text-xs text-muted ml-2">(${p.id} · ${p.industry || '—'})</span>
+        </div>
+        <a href="project-workbench.html?projectId=${p.id}" class="text-xs text-brand-600 hover:underline">← 返回项目工作台</a>
+      </div>`;
+    })()}
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            工作底稿管理
+            <span class="text-xs text-muted font-normal">FR-B-008 · 留存 ≥ 15 年</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            自动归集尽调全过程的资料、问答记录、签字、照片，按底稿目录树管理，支持版本控制与导出。
+            按《档案管理制度》分级归档；保密义务由《信用评级业务程序指引》约束。
+          </p>
+        </div>
+        <button onclick="askAIWP()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">底稿目录</div><div class="num text-2xl font-bold text-brand-600 mt-1">${wps.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">底稿条目</div><div class="num text-2xl font-bold text-brand-700 mt-1">${totalItems}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已封存</div><div class="num text-2xl font-bold text-success mt-1">${wps.filter(w=>w.sealed).length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">未封存</div><div class="num text-2xl font-bold text-warning mt-1">${wps.filter(w=>!w.sealed).length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">总占用</div><div class="num text-2xl font-bold text-brand-600 mt-1">461 MB</div></div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-3 gap-5">
+      <!-- 底稿树 -->
+      <div class="bg-white rounded-lg shadow-card">
+        <div class="px-4 py-3 border-b border-border">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            底稿目录树
+          </h3>
+        </div>
+        <div class="py-2">
+          ${wps.map((w, idx) => `
+            <button onclick="selectWP(${idx})" class="w-full text-left px-4 py-2 hover:bg-bg flex items-center gap-2 ${idx===0?'bg-brand-50 border-l-2 border-brand-600':''}">
+              <span class="text-base">📁</span>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-medium truncate">${w.name}</div>
+                <div class="text-[10px] text-muted">${w.items} 条 · ${w.size}</div>
+              </div>
+              ${w.sealed ? '<span class="text-success text-[10px]">封</span>' : '<span class="text-warning text-[10px]">编</span>'}
+            </button>
+          `).join('')}
+        </div>
+        <div class="px-4 py-2 border-t border-border">
+          <button onclick="newFolder()" class="text-xs text-brand-600 hover:underline w-full text-left">+ 新建底稿目录</button>
+        </div>
+      </div>
+
+      <!-- 底稿条目（默认显示 B-001 财务尽调）-->
+      <div class="col-span-2 bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            B 财务尽调（34 条）
+          </h3>
+          <div class="flex gap-1">
+            <button class="text-xs px-2 py-1 border border-border rounded hover:bg-bg">导出</button>
+            <button onclick="sealWP()" class="text-xs px-2 py-1 bg-success text-white rounded hover:opacity-90">封存</button>
+          </div>
+        </div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2">编号</th>
+            <th class="py-2">名称</th>
+            <th class="py-2">类型</th>
+            <th class="py-2">大小</th>
+            <th class="py-2">上传人</th>
+            <th class="py-2">上传时间</th>
+            <th class="py-2 pr-4">版本</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border text-xs">
+            ${[
+              ['B-001-FIN-001','2025 年度审计报告.pdf','PDF','24.6 MB','王明远','2026-04-20 10:14','V1'],
+              ['B-001-FIN-002','2024 年度审计报告.pdf','PDF','22.4 MB','王明远','2026-04-20 10:18','V1'],
+              ['B-001-FIN-003','2023 年度审计报告.pdf','PDF','21.0 MB','王明远','2026-04-20 10:20','V1'],
+              ['B-001-FIN-004','2026-Q1 未审报表.pdf','PDF','8.6 MB','王明远','2026-04-20 10:24','V1'],
+              ['B-001-FIN-005','OCR 抽取结果（资产负债表）.json','JSON','42 KB','系统','2026-04-22 10:18','V1'],
+              ['B-001-FIN-006','OCR 抽取结果（利润表）.json','JSON','38 KB','系统','2026-04-22 10:18','V1'],
+              ['B-001-FIN-007','OCR 抽取结果（现金流量表）.json','JSON','34 KB','系统','2026-04-22 10:18','V1'],
+              ['B-001-FIN-008','三表勾稽校验报告.pdf','PDF','1.2 MB','系统','2026-04-22 10:24','V1'],
+              ['B-001-FIN-009','BACP 评分输入数据.xlsx','XLSX','680 KB','李雨欣','2026-04-23 11:10','V2'],
+              ['B-001-FIN-010','现金流口径调整说明.docx','DOCX','120 KB','李雨欣','2026-04-23 14:40','V1'],
+              ['B-001-FIN-011','审计意见与会计估计变更.pdf','PDF','3.8 MB','王明远','2026-04-24 09:32','V1'],
+              ['B-001-FIN-012','非经常性损益还原.xlsx','XLSX','540 KB','李雨欣','2026-04-24 16:18','V1'],
+              ['B-001-FIN-013','利息保障倍数计算.xlsx','XLSX','280 KB','李雨欣','2026-04-25 10:00','V1'],
+              ['B-001-FIN-014','EBITDA 还原.xlsx','XLSX','420 KB','李雨欣','2026-04-25 11:42','V1'],
+            ].map(r => `
+              <tr class="hover:bg-bg">
+                <td class="px-4 py-2 num text-[11px]">${r[0]}</td>
+                <td class="text-xs">${r[1]}</td>
+                <td class="text-xs text-muted">${r[2]}</td>
+                <td class="text-xs num text-muted">${r[3]}</td>
+                <td class="text-xs">${r[4]}</td>
+                <td class="text-xs num text-muted">${r[5]}</td>
+                <td class="text-xs num">${r[6]}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="px-5 py-3 border-t border-border bg-bg/40 text-[11px] text-muted">
+          <strong>提示：</strong>底稿条目 14 / 34 已显示。所有上传操作已写入审计日志（含哈希），WORM 不可篡改。
+        </div>
+      </div>
+    </section>
+
+    <!-- 归档与保留 -->
+    <section class="bg-white rounded-lg shadow-card mt-5 p-5">
+      <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        归档与保留策略（《档案管理制度》）
+      </h3>
+      <div class="grid grid-cols-3 gap-4 text-xs">
+        <div class="border border-border rounded p-3">
+          <div class="font-medium">分级归档</div>
+          <div class="text-muted mt-1 leading-snug">绝密 / 机密 / 内部 / 公开 四级；机密及以上须双人复核归档。</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="font-medium">保留期限</div>
+          <div class="text-muted mt-1 leading-snug">底稿、报告、签字、原始资料保留 ≥ 15 年；审计日志 ≥ 10 年。</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="font-medium">销毁与清理</div>
+          <div class="text-muted mt-1 leading-snug">到期销毁前须经评级总监 + 法务 + 合规三方签字，并形成销毁记录入档。</div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function selectWP(i) { toast('已切换到底稿目录：' + MockData.ddWorkpapers[i].name, 'info', 1200); }
+function newFolder() { toast('请在弹窗中输入新目录名（演示）', 'info'); }
+function sealWP() {
+  confirmDialog({
+    title: '封存当前底稿目录?',
+    content: '<p class="text-sm">封存后该目录条目不可修改，将进入档案管理系统并入审计日志。</p>',
+    okText: '封存', cancelText: '取消'
+  }).then(ok => { if (ok) toast('已封存 · 已写入审计链', 'success'); });
+}
+function askAIWP() {
+  AIAgent.setScene('audit-qa');
+  const wps = (window.MockData && MockData.ddWorkpapers) || [];
+  const ctx = '工作底稿目录 ' + wps.length + ' 个 · 合计 ' + wps.reduce((s,w)=>s+(w.items||0),0) + ' 条\n' +
+    wps.slice(0, 8).map(w => '· ' + (w.code || w.id || '—') + ' · ' + w.name + ' · ' + (w.items||0) + ' 条 · ' + (w.size||'—') + ' · ' + (w.sealed ? '已封存' : '未封存')).join('\n');
+  AIAgent.send(
+    '请基于本平台工作底稿台账，给出"分级归档建议 + 监管/内审追溯回答模板 + 销毁前合规校验清单"三段式建议。\n' +
+    '当前底稿台账：\n' + ctx + '\n\n' +
+    '要求：\n' +
+    '1. 分级归档：核心档案 / 一般档案 / 临时档案 三级，每级保留期、访问权限、加密要求；\n' +
+    '2. 区块链 hash 上链覆盖率审计（哪些底稿未上链需补救）；\n' +
+    '3. 监管/内审典型追溯问题及回答模板（"该结论的底稿在哪 / 谁签字 / 何时归档"）；\n' +
+    '4. 销毁前 8 项合规校验清单（保留期是否到期 / 是否涉诉 / 是否监管在调）；\n' +
+    '5. 引用《信用评级业务工作底稿管理制度》《档案管理办法》《关于促进债券市场信用评级行业健康发展的通知》（2021）具体条款。',
+    ctx
+  );
+}
+mountLayout('dd-workpaper', renderMain);
+</script>
+</body>
+</html>

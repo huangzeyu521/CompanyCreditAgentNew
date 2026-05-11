@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>系统管理 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+let _tab = 'users';
+
+function renderMain() {
+  const tabs = [
+    { k:'users',     l:'用户管理'      },
+    { k:'roles',     l:'角色与权限'    },
+    { k:'tenants',   l:'租户管理'      },
+    { k:'sources',   l:'数据源管理'    },
+    { k:'models',    l:'模型版本'      },
+    { k:'apis',      l:'接口配置'      },
+    { k:'monitoring',l:'系统监控'      }
+  ];
+
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <h1 class="text-lg font-semibold flex items-center gap-2 mb-4">
+        <span class="w-1 h-5 bg-brand-600 rounded"></span>
+        系统管理
+      </h1>
+
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-5">
+        <!-- 左侧 Tab -->
+        <div class="space-y-1">
+          ${tabs.map(t => `
+            <button onclick="switchTab('${t.k}')" class="w-full text-left px-3 py-2 rounded text-sm ${_tab === t.k ? 'bg-brand-50 text-brand-700 font-medium border-l-2 border-brand-600' : 'text-ink/80 hover:bg-bg'}">${t.l}</button>
+          `).join('')}
+        </div>
+
+        <!-- 右侧内容 -->
+        <div class="md:col-span-4">
+          ${renderTabContent()}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderTabContent() {
+  switch(_tab) {
+    case 'users':      return renderUsers();
+    case 'roles':      return renderRoles();
+    case 'tenants':    return renderTenants();
+    case 'sources':    return renderSources();
+    case 'models':     return renderModels();
+    case 'apis':       return renderApis();
+    case 'monitoring': return renderMonitoring();
+  }
+}
+
+function renderUsers() {
+  return `
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-semibold">用户管理（${MockData.systemUsers.length}）</h2>
+      <button onclick="toast('打开新增用户','info')" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded hover:bg-brand-700">+ 新增用户</button>
+    </div>
+    <div class="overflow-x-auto border border-border rounded-lg">
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left"><th class="px-4 py-2.5">用户ID</th><th class="py-2.5">姓名</th><th class="py-2.5">邮箱</th><th class="py-2.5">角色</th><th class="py-2.5">部门</th><th class="py-2.5">状态</th><th class="py-2.5">最近登录</th><th class="py-2.5 pr-4 text-right">操作</th></tr></thead>
+        <tbody class="divide-y divide-border">
+          ${MockData.systemUsers.map(u => `
+            <tr class="hover:bg-bg">
+              <td class="px-4 py-3 num text-xs">${u.id}</td>
+              <td class="font-medium">${u.name}</td>
+              <td class="num text-xs">${u.email}</td>
+              <td class="text-xs">${u.role}</td>
+              <td class="text-xs">${u.dept}</td>
+              <td><span class="text-xs px-2 py-0.5 rounded bg-success/10 text-success border border-success/30">${u.status}</span></td>
+              <td class="text-xs text-muted num">${u.lastLogin}</td>
+              <td class="text-right pr-4"><button onclick="editUser('${u.id}')" class="text-xs text-brand-600 hover:underline">编辑</button> <span class="mx-1 text-border">|</span> <button onclick="disableUser('${u.id}','${u.name}')" class="text-xs text-danger hover:underline">禁用</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+function renderRoles() {
+  const roles = [
+    { name:'高级评级分析师', users:1, perms:'评级生产 + 报告生成 + 复核'},
+    { name:'评级分析师',     users:1, perms:'评级生产 + 报告生成'},
+    { name:'评级业务总监',   users:1, perms:'团队产能 + 评级质量监控'},
+    { name:'合规与风控官',   users:1, perms:'合规审查 + 风险监控 + 审计'},
+    { name:'IT 运维管理员',  users:1, perms:'系统运维 + 用户与租户管理'}
+  ];
+  return `
+    <h2 class="text-base font-semibold mb-4">角色与权限（${roles.length}）</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      ${roles.map(r => `
+        <div class="border border-border rounded p-4 lift">
+          <div class="flex items-center justify-between">
+            <div class="font-medium">${r.name}</div>
+            <span class="text-xs text-muted">${r.users} 用户</span>
+          </div>
+          <div class="text-xs text-muted mt-2">${r.perms}</div>
+          <div class="mt-3 flex gap-2"><button onclick="toast('打开角色权限编辑：${r.name}','info')" class="text-xs text-brand-600 hover:underline">编辑权限</button><button onclick="switchTab('users')" class="text-xs text-muted hover:underline">查看用户</button></div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+function renderTenants() {
+  return `
+    <h2 class="text-base font-semibold mb-4">租户管理（3）</h2>
+    <div class="space-y-3">
+      ${[
+        { name:'远东资信评估有限公司', mode:'私有化部署', users:120, status:'active' },
+        { name:'XX 评级机构（试点）',  mode:'专属云',     users:35,  status:'active' },
+        { name:'demo-test',              mode:'SaaS',       users:5,   status:'trial' }
+      ].map(t => `
+        <div class="border border-border rounded p-4 flex items-center justify-between">
+          <div>
+            <div class="font-medium">${t.name}</div>
+            <div class="text-xs text-muted mt-1">部署模式：${t.mode} · 用户数：${t.users}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs px-2 py-0.5 rounded ${t.status === 'active' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}">${t.status === 'active' ? '运行中' : '试用'}</span>
+            <button onclick="toast('打开租户配置：${t.name}','info')" class="text-xs text-brand-600 hover:underline">配置</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+function renderSources() {
+  return `
+    <h2 class="text-base font-semibold mb-4">数据源管理（${MockData.dataSources.length}）</h2>
+    <div class="overflow-x-auto border border-border rounded-lg">
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left"><th class="px-4 py-2.5">数据源</th><th class="py-2.5">协议</th><th class="py-2.5">采集字段数</th><th class="py-2.5">平均时延</th><th class="py-2.5">最近调用</th><th class="py-2.5">状态</th><th class="py-2.5 pr-4 text-right">操作</th></tr></thead>
+        <tbody class="divide-y divide-border">
+          ${MockData.dataSources.map(d => `
+            <tr class="hover:bg-bg">
+              <td class="px-4 py-3 font-medium">${d.name}</td>
+              <td class="text-xs text-muted">REST / SOAP</td>
+              <td class="text-xs num">${d.fields}</td>
+              <td class="text-xs num">${d.ms}ms</td>
+              <td class="text-xs text-muted">2 分钟前</td>
+              <td><span class="text-xs px-2 py-0.5 rounded bg-${d.status === 'success' ? 'success' : 'warning'}/10 text-${d.status === 'success' ? 'success' : 'warning'}">${d.status === 'success' ? '正常' : '降级'}</span></td>
+              <td class="text-right pr-4"><button onclick="toast('打开数据源配置：${d.name}','info')" class="text-xs text-brand-600 hover:underline">配置</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+function renderModels() {
+  const models = [
+    { name:'公共信用评分模型',  v:'2.6', updated:'2026-04-15', status:'生产'},
+    { name:'跨域翻译规则库',    v:'1.18',updated:'2026-04-20', status:'生产'},
+    { name:'知识图谱',          v:'3.4', updated:'2026-04-25', status:'生产'},
+    { name:'LLM 推理网关',      v:'1.2', updated:'2026-04-10', status:'生产'},
+    { name:'隐私计算 FATE',     v:'1.11',updated:'2026-03-30', status:'生产'},
+    { name:'ESG 子模型',        v:'1.8', updated:'2026-04-22', status:'生产'},
+    { name:'熔断状态机',        v:'2.0', updated:'2026-04-18', status:'生产'},
+    { name:'报告模板引擎',      v:'1.5', updated:'2026-04-26', status:'灰度'}
+  ];
+  return `
+    <h2 class="text-base font-semibold mb-4">模型版本管理（${models.length}）</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      ${models.map(m => `
+        <div class="border border-border rounded p-4 lift">
+          <div class="flex items-center justify-between">
+            <div class="font-medium text-sm">${m.name}</div>
+            <span class="text-xs px-2 py-0.5 rounded bg-${m.status === '生产' ? 'success' : 'warning'}/10 text-${m.status === '生产' ? 'success' : 'warning'} border border-${m.status === '生产' ? 'success' : 'warning'}/30">${m.status}</span>
+          </div>
+          <div class="text-xs text-muted mt-1">版本 <span class="num">v${m.v}</span> · 更新于 <span class="num">${m.updated}</span></div>
+          <div class="mt-3 flex gap-2"><button onclick="toast('查看模型详情：${m.name} v${m.v}','info')" class="text-xs text-brand-600 hover:underline">查看详情</button><button onclick="toast('查看版本历史：${m.name}','info')" class="text-xs text-brand-600 hover:underline">版本历史</button></div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+function renderApis() {
+  return `
+    <h2 class="text-base font-semibold mb-4">接口配置（${MockData.apis.length}）</h2>
+    <div class="space-y-2">
+      ${MockData.apis.map(a => `
+        <div class="border border-border rounded p-3 flex items-center gap-3 hover:bg-bg">
+          <span class="text-xs px-2 py-0.5 rounded ${a.method === 'GET' ? 'bg-success/10 text-success' : 'bg-brand-100 text-brand-700'} font-medium num">${a.method}</span>
+          <span class="num text-xs flex-1">${a.path}</span>
+          <span class="text-xs text-muted">${a.desc}</span>
+          <span class="text-xs num text-brand-600">${fmtNum(a.calls)} 调用</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+function renderMonitoring() {
+  return `
+    <h2 class="text-base font-semibold mb-4">系统监控</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div class="border border-border rounded p-4"><div class="text-xs text-muted">系统可用性</div><div class="num text-2xl font-semibold text-success mt-1">99.97%</div><div class="text-xs text-success mt-1">本月达标</div></div>
+      <div class="border border-border rounded p-4"><div class="text-xs text-muted">P95 时延</div><div class="num text-2xl font-semibold text-brand-600 mt-1">820ms</div><div class="text-xs text-success mt-1">优于 SLA</div></div>
+      <div class="border border-border rounded p-4"><div class="text-xs text-muted">在线分析师</div><div class="num text-2xl font-semibold text-brand-600 mt-1">87</div><div class="text-xs text-muted mt-1">峰值 142</div></div>
+      <div class="border border-border rounded p-4"><div class="text-xs text-muted">本日 API 调用</div><div class="num text-2xl font-semibold text-brand-600 mt-1">${fmtNum(125840)}</div><div class="text-xs text-success mt-1">99.8% 成功</div></div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+      <div class="border border-border rounded p-4">
+        <div class="text-sm font-semibold mb-2">微服务可用性 SLA</div>
+        <div id="serviceSlaChart" class="h-64"></div>
+      </div>
+      <div class="border border-border rounded p-4">
+        <div class="text-sm font-semibold mb-2">P95 响应时延趋势 · 24 小时</div>
+        <div id="latencyChart" class="h-64"></div>
+      </div>
+    </div>
+    <div class="border border-border rounded p-4">
+      <div class="text-sm font-semibold mb-3">服务健康度详情</div>
+      <div class="space-y-2">
+        ${['credit-collection','credit-scoring','credit-translation','credit-graph','credit-fuse','credit-report','credit-audit','credit-tenant','credit-billing','credit-openapi','credit-llm'].map(s => `
+          <div class="flex items-center gap-3 text-sm">
+            <span class="w-2 h-2 bg-success rounded-full"></span>
+            <span class="num text-xs flex-1">${s}</span>
+            <span class="text-xs text-muted">健康</span>
+            <span class="text-xs num text-success">99.9%</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function editUser(uid) {
+  const u = MockData.systemUsers.find(x => x.id === uid);
+  if (!u) { toast('用户不存在', 'warning'); return; }
+  const roleOpts = ['高级评级分析师','评级分析师','评级业务总监','合规与风控官','IT 运维管理员','数据治理工程师','客户成功'];
+  openModal({
+    title: `编辑用户 · ${u.name}`,
+    width: 'max-w-md',
+    content: `
+      <div class="space-y-3">
+        <div><label class="text-xs text-muted">用户 ID</label><input value="${u.id}" disabled class="mt-1 block w-full px-3 py-2 border border-border bg-bg rounded-md text-sm cursor-not-allowed" /></div>
+        <div><label class="text-xs text-muted">姓名</label><input id="editName" value="${u.name}" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" /></div>
+        <div><label class="text-xs text-muted">邮箱</label><input id="editEmail" value="${u.email}" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" /></div>
+        <div><label class="text-xs text-muted">角色</label>
+          <select id="editRole" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent">
+            ${roleOpts.map(r => `<option ${r===u.role?'selected':''}>${r}</option>`).join('')}
+          </select>
+        </div>
+        <div><label class="text-xs text-muted">部门</label><input id="editDept" value="${u.dept}" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" /></div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded hover:bg-bg">取消</button>
+      <button onclick="confirmEditUser('${uid}')" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded hover:bg-brand-700">保存修改</button>
+    `
+  });
+}
+function confirmEditUser(uid) {
+  const u = MockData.systemUsers.find(x => x.id === uid);
+  if (!u) return;
+  u.name  = document.getElementById('editName').value;
+  u.email = document.getElementById('editEmail').value;
+  u.role  = document.getElementById('editRole').value;
+  u.dept  = document.getElementById('editDept').value;
+  closeModal();
+  toast(`用户 ${u.name} 信息已更新`, 'success');
+  document.getElementById('app').innerHTML = '';
+  mountLayout('system', renderMain);
+}
+function disableUser(uid, name) {
+  confirmDialog({
+    title: '禁用用户确认',
+    content: `<p>确认禁用用户 <span class="font-semibold">${name}</span> (${uid}) ？</p><p class="text-xs text-muted mt-2">禁用后该用户将无法登录系统、无法查看任何评级数据。可在"用户管理"中重新启用。</p>`,
+    okText: '确认禁用', cancelText: '取消', danger: true
+  }).then(ok => {
+    if (ok) toast(`用户 ${name} 已禁用`, 'warning');
+  });
+}
+function switchTab(t) {
+  _tab = t;
+  document.getElementById('app').innerHTML = '';
+  mountLayout('system', renderMain);
+  if (_tab === 'monitoring') setTimeout(initMonitoringCharts, 100);
+}
+
+function initMonitoringCharts() {
+  const services = ['collection','scoring','translation','graph','fuse','report','audit','tenant','billing','openapi','llm'];
+  // 微服务 SLA 柱状
+  const sla = document.getElementById('serviceSlaChart');
+  if (sla) {
+    const c = echarts.init(sla);
+    const slaData = services.map(() => 99.7 + Math.random() * 0.29);
+    c.setOption({
+      tooltip: { trigger: 'axis', formatter: '{b}: {c}%' },
+      grid: { left: 80, right: 30, top: 10, bottom: 25 },
+      xAxis: { type: 'value', min: 99.5, max: 100, axisLabel: { formatter: '{value}%', fontSize: 9 }, splitLine: { lineStyle: { color: '#F1F5F9' } } },
+      yAxis: { type: 'category', data: services.reverse(), axisLine: { show: false }, axisLabel: { fontSize: 10 } },
+      series: [{
+        type: 'bar', data: slaData.reverse(),
+        itemStyle: { color: function(p) { return p.value >= 99.95 ? '#16A34A' : p.value >= 99.9 ? '#4A90E2' : '#F59E0B'; }, borderRadius: [0,3,3,0] },
+        label: { show: true, position: 'right', formatter: (p) => p.value.toFixed(2) + '%', fontSize: 10 },
+        barWidth: '60%'
+      }]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+  // 24h 时延趋势
+  const lat = document.getElementById('latencyChart');
+  if (lat) {
+    const c = echarts.init(lat);
+    const hours = Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+':00');
+    const p95 = hours.map((_, i) => 600 + Math.floor(Math.random()*400) + (i >= 9 && i <= 18 ? 200 : 0));
+    const p99 = p95.map(x => x + 200 + Math.floor(Math.random()*150));
+    c.setOption({
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['P95','P99'], textStyle:{fontSize:11}, top: 0 },
+      grid: { left: 50, right: 15, top: 30, bottom: 25 },
+      xAxis: { type:'category', data: hours, axisLabel: { fontSize: 9, interval: 2 } },
+      yAxis: { type: 'value', name: 'ms', axisLine: { show: false }, splitLine: { lineStyle: { color: '#F1F5F9' } } },
+      series: [
+        { name:'P95', type:'line', smooth:true, data: p95, itemStyle:{color:'#1F497D'}, areaStyle:{color:'rgba(31,73,125,0.10)'} },
+        { name:'P99', type:'line', smooth:true, data: p99, itemStyle:{color:'#F59E0B'}, lineStyle:{type:'dashed'} }
+      ]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+}
+
+mountLayout('system', renderMain);
+</script>
+</body>
+</html>

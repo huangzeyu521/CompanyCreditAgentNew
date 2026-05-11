@@ -1,0 +1,123 @@
+/**
+ * E2E：验证公共信用模块按 GB/T 45255-2025 重构
+ *  ① subject-rating 第一步：信用中国为单一聚合源（不再是 10 个）
+ *  ② subject-rating 第二步：8 维雷达 + 8 维拆分卡 + 主体标签 + 报告头
+ *  ③ "国办发〔2026〕8 号"已全产品清除
+ *  ④ attribution 8 维分类（行政管理/履约践诺/守信激励/社会监督/...）
+ */
+const puppeteer = require('puppeteer-core');
+
+const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+const BASE = 'http://127.0.0.1:8000';
+
+let failed = 0;
+function ok(cond, label) {
+  console.log((cond ? '  ✅ ' : '  ❌ FAIL: ') + label);
+  if (!cond) failed++;
+}
+
+(async () => {
+  const browser = await puppeteer.launch({
+    executablePath: EDGE,
+    headless: 'new',
+    args: ['--no-sandbox']
+  });
+  try {
+    const page = await browser.newPage();
+    page.on('pageerror', e => console.error('  ⚠ PAGE ERROR:', e.message));
+
+    // ───────── ① subject-rating Step 1: 信用中国为唯一数据源 ─────────
+    console.log('\n=== ① 第一步：数据源精简到 1（信用中国）===');
+    await page.goto(BASE + '/pages/subject-rating.html?subject=南京钢铁联合有限公司&step=1', { waitUntil: 'networkidle2' });
+    await new Promise(r => setTimeout(r, 600));
+
+    const dsCount = await page.evaluate(() => MockData.dataSources.length);
+    ok(dsCount === 1, `MockData.dataSources 只有 1 个（实际 ${dsCount}）`);
+
+    const dsName = await page.evaluate(() => MockData.dataSources[0].name);
+    ok(dsName.includes('信用中国'), `数据源是"信用中国"（实际 "${dsName}"）`);
+
+    // 页面文案应有"GB/T 45255-2025"和"信用中国"
+    const step1Text = await page.$eval('body', b => b.innerText);
+    ok(step1Text.includes('信用中国'), '第一步 UI 显示"信用中国"');
+    ok(step1Text.includes('GB/T 45255-2025'), '第一步 UI 显示"GB/T 45255-2025"');
+    ok(step1Text.includes('国家公共信用和地理空间信息中心'), '第一步 UI 显示"国家公共信用和地理空间信息中心"');
+    // 不再显示 10 个数据源相关文案
+    ok(!step1Text.includes('10 个数据源'), '不再有"10 个数据源"');
+    ok(step1Text.includes('八大维度'), '第一步显示"八大维度"覆盖说明');
+
+    // ───────── ② Step 2: 八维雷达 + 8 维拆分卡 + 主体标签 ─────────
+    console.log('\n=== ② 第二步：8 维雷达 + 拆分卡 + 主体标签 ===');
+    await page.goto(BASE + '/pages/subject-rating.html?subject=南京钢铁联合有限公司&step=2', { waitUntil: 'networkidle2' });
+    await new Promise(r => setTimeout(r, 800));
+
+    const step2Text = await page.$eval('body', b => b.innerText);
+    // 8 维度名称必须全部出现
+    const dims = ['司法裁判', '行政监管', '履约践诺', '经营管理', '发展创新', '守信激励', '失信惩戒', '社会监督'];
+    dims.forEach(d => ok(step2Text.includes(d), `8 维度包含 "${d}"`));
+
+    // 4 维度旧标签不应出现
+    ok(!/履约意愿（\d+%）/.test(step2Text), '不再有"履约意愿（X%）"');
+    ok(!/ESG 专项（\d+%）/.test(step2Text), '不再有"ESG 专项（X%）"');
+
+    // 主体标签：南京钢铁应显示"守信激励对象"（来自实际信用中国报告）
+    ok(step2Text.includes('守信激励对象'), '南京钢铁显示"守信激励对象"标签（来自真实信用中国报告）');
+
+    // 报告头元信息
+    ok(step2Text.includes('国家公共信用和地理空间信息中心'), '报告头有出具单位');
+    ok(/报告编号：\s*\d/.test(step2Text), '报告头有报告编号');
+    ok(step2Text.includes('公共信用信息报告标准（2022 年版）'), '报告头有标准引用');
+
+    // 等级说明应是 优(A)/良(B)/中(C)/差(D)
+    ok(step2Text.includes('优(A)') || step2Text.includes('优（A）'), '等级说明使用"优(A)/良(B)/中(C)/差(D)"');
+
+    // ───────── ③ 全产品"国办发 8 号"已清理 ─────────
+    console.log('\n=== ③ "国办发〔2026〕8 号"已全产品清理 ===');
+    const pages = [
+      'subject-rating.html?subject=南京钢铁联合有限公司&step=1',
+      'subject-rating.html?subject=南京钢铁联合有限公司&step=2',
+      'subject-rating.html?subject=南京钢铁联合有限公司&step=4',
+      'subject-rating.html?subject=南京钢铁联合有限公司&step=5',
+      'fusion-engine.html',
+      'compliance-rules.html',
+      'monitoring-report.html',
+      'public-credit-catalog.html',
+      'credit-repair-sync.html'
+    ];
+    for (const p of pages) {
+      await page.goto(BASE + '/pages/' + p, { waitUntil: 'networkidle2' });
+      await new Promise(r => setTimeout(r, 300));
+      const t = await page.$eval('body', b => b.innerText).catch(() => '');
+      ok(!/国办发[〔\[]2026[〕\]].*8.*号/.test(t), `${p.split('?')[0]} 已清除"国办发〔2026〕8 号"`);
+    }
+
+    // ───────── ④ attribution 已按 8 维 ─────────
+    console.log('\n=== ④ attribution 已按 8 维分类 ===');
+    await page.goto(BASE + '/pages/subject-rating.html?subject=南京钢铁联合有限公司&step=2', { waitUntil: 'networkidle2' });
+    await new Promise(r => setTimeout(r, 600));
+
+    const attrDims = await page.evaluate(() => {
+      return Array.from(new Set(MockData.attribution.map(a => a.dimension)));
+    });
+    console.log('  · attribution 维度：', attrDims.join(', '));
+    const hasNewDims = attrDims.some(d => ['行政管理','履约践诺','守信激励','社会监督','发展创新','经营管理'].includes(d));
+    const hasOldDims = attrDims.some(d => ['履约意愿','履约能力','履约行为','ESG'].includes(d));
+    ok(hasNewDims, 'attribution 包含 GB/T 45255 新维度（行政管理 / 履约践诺 / ...）');
+    ok(!hasOldDims, 'attribution 不再含旧 4 维（履约意愿 / 能力 / 行为 / ESG）');
+
+    // 法律依据应包含 "GB/T 45255-2025"
+    const allLegalBasis = await page.evaluate(() =>
+      MockData.attribution.map(a => a.legalBasis).join(' | ')
+    );
+    ok(allLegalBasis.includes('GB/T 45255-2025'), 'attribution 法律依据引用 GB/T 45255-2025');
+
+    if (failed) {
+      console.log(`\n❌ ${failed} 项失败`);
+      process.exit(1);
+    } else {
+      console.log('\n🎉 全部断言通过');
+    }
+  } finally {
+    await browser.close();
+  }
+})().catch(e => { console.error('FATAL', e); process.exit(1); });

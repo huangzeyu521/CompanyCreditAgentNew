@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>投资者服务 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 投资者服务（远东对外品牌门户）============== */
+function renderMain() {
+  const pubs = MockData.investorPubs;
+  const sub = MockData.investorSubscribers;
+  const reports = MockData.reports;
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            投资者服务
+            <span class="text-xs text-muted font-normal">远东资信对外品牌门户</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            面向买方机构（基金、保险、券商、银行）提供：评级公告查询 · 信用研究订阅 · 《远东信用观察》系列出版物 ·
+            债市观察 · 行业信用展望 · 定制化研究咨询。所有发布内容遵循《信息披露制度》《银行间信息披露制度》。
+          </p>
+        </div>
+        <button onclick="askAIInvestor()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">在评有效报告</div><div class="num text-2xl font-bold text-brand-600 mt-1">248</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">订阅机构</div><div class="num text-2xl font-bold text-brand-700 mt-1">${sub.totalSubs}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">月活订阅者</div><div class="num text-2xl font-bold text-success mt-1">${sub.monthlyActive}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本月研报下载</div><div class="num text-2xl font-bold text-brand-600 mt-1">${sub.downloadCount}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">出版物总数</div><div class="num text-2xl font-bold text-brand-700 mt-1">${pubs.length}+</div></div>
+      </div>
+    </section>
+
+    <!-- 《远东信用观察》出版物 -->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          《远东信用观察》系列出版物
+        </h3>
+        <span class="text-xs text-muted">季度 / 月报 / 区域 / 专题 / 债市</span>
+      </div>
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 p-5">
+        ${pubs.map(p => `
+          <div class="border border-border rounded-lg p-4 hover:border-brand-300 hover:bg-brand-50/30 transition-colors cursor-pointer" onclick="viewPub('${p.id}')">
+            <div class="flex items-start justify-between gap-2">
+              <div class="text-sm font-medium leading-tight">${p.title}</div>
+              <span class="text-[10px] num text-muted whitespace-nowrap">${p.date}</span>
+            </div>
+            <div class="text-xs text-muted leading-snug mt-2">${p.summary}</div>
+            <div class="flex items-center justify-between mt-3 pt-2 border-t border-border">
+              <div class="flex gap-1">
+                ${p.tags.map(t => `<span class="text-[10px] px-1.5 py-0.5 bg-bg text-muted rounded">${t}</span>`).join('')}
+              </div>
+              <span class="text-[10px] text-muted num">${p.pages} 页</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <!-- 评级公告查询 + 订阅 -->
+    <section class="grid grid-cols-3 gap-5">
+      <div class="col-span-2 bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            评级公告查询（最近 6 条）
+          </h3>
+          <a href="reports.html" class="text-xs text-brand-600 hover:underline">查看全部 →</a>
+        </div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2">主体</th>
+            <th class="py-2">类型</th>
+            <th class="py-2 text-center">公共</th>
+            <th class="py-2 text-center">市场化</th>
+            <th class="py-2 text-center">融合</th>
+            <th class="py-2">更新</th>
+            <th class="py-2 pr-4 text-right">操作</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border">
+            ${reports.slice(0, 6).map(r => `
+              <tr class="hover:bg-bg">
+                <td class="px-4 py-2.5 text-sm">${r.subject}</td>
+                <td class="text-xs text-muted">${r.type}</td>
+                <td class="text-center">${publicGradeBadge(r.public)}</td>
+                <td class="text-center">${gradeBadge(r.market)}</td>
+                <td class="text-center">${gradeBadge(r.fusion)}</td>
+                <td class="text-xs num text-muted">${r.updatedAt}</td>
+                <td class="text-right pr-4"><a href="report-detail.html?id=${r.id}" class="text-xs text-brand-600 hover:underline">查看 →</a></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="space-y-5">
+        <div class="bg-white rounded-lg shadow-card p-5">
+          <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            订阅服务
+          </h3>
+          <div class="space-y-2 text-xs">
+            <label class="flex items-center gap-2"><input type="checkbox" checked /> <span>《远东信用观察》季度</span></label>
+            <label class="flex items-center gap-2"><input type="checkbox" checked /> <span>国际观察月报</span></label>
+            <label class="flex items-center gap-2"><input type="checkbox" /> <span>区域经济与信用观察</span></label>
+            <label class="flex items-center gap-2"><input type="checkbox" /> <span>债市信用观察</span></label>
+            <label class="flex items-center gap-2"><input type="checkbox" /> <span>违约预警实时推送</span></label>
+            <label class="flex items-center gap-2"><input type="checkbox" /> <span>评级调整公告（订阅主体）</span></label>
+          </div>
+          <button onclick="toast('订阅设置已保存','success')" class="w-full text-xs py-2 mt-3 bg-brand-600 text-white rounded">保存订阅</button>
+        </div>
+
+        <div class="grad-deep-blue text-white rounded-lg p-4">
+          <div class="text-xs opacity-80">远东研究品牌矩阵</div>
+          <ul class="text-sm space-y-1.5 mt-2">
+            <li>· 《远东信用观察》</li>
+            <li>· 行业研究（263 份）</li>
+            <li>· 主权评级报告</li>
+            <li>· 信用研究 / 债市研究</li>
+            <li>· 宏观经济与政策研究</li>
+            <li>· 远东 ESG / 绿色金融研究</li>
+            <li>· 系列研究成果</li>
+          </ul>
+          <a href="industry-research.html" class="block text-center text-xs py-2 mt-3 bg-white/15 hover:bg-white/25 rounded">访问研究库 →</a>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function viewPub(id) {
+  const p = MockData.investorPubs.find(x => x.id === id);
+  if (!p) return;
+  openModal({
+    title: p.title,
+    width: 'max-w-2xl',
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="grid grid-cols-3 gap-3 text-xs">
+          <div><span class="text-muted">发布日期：</span><span class="num">${p.date}</span></div>
+          <div><span class="text-muted">页数：</span><span class="num">${p.pages}</span></div>
+          <div><span class="text-muted">分类：</span>${p.tags.join(' / ')}</div>
+        </div>
+        <div class="border-t border-border pt-3">
+          <div class="font-medium mb-1">摘要</div>
+          <div class="text-xs leading-relaxed">${p.summary}</div>
+        </div>
+        <div class="border-t border-border pt-3 text-[11px] text-muted leading-relaxed">
+          <strong>使用说明：</strong>本出版物仅供订阅机构使用，未经远东资信书面许可，不得转载、复制或用于其他商业用途。
+        </div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded">关闭</button>
+      <button onclick="closeModal();toast('PDF 已下载（演示）','success');" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">下载 PDF</button>
+    `
+  });
+}
+
+function askAIInvestor() {
+  AIAgent.setScene('kb-rag');
+  const subs = (window.MockData && MockData.investorSubscribers) || {};
+  const pubs = (window.MockData && MockData.investorPubs) || [];
+  const ctx = '订阅投资者：' + (subs.totalSubs || 0) + ' 户 / 月活：' + (subs.monthlyActive || 0) + ' / 月下载：' + (subs.downloadCount || 0) + ' 次\n' +
+    '近期发布物：\n' +
+    pubs.slice(0, 5).map(p => '· ' + p.id + ' · ' + p.title + ' · ' + p.date + ' · ' + (p.summary || '').slice(0, 40)).join('\n');
+  AIAgent.send(
+    '请基于本平台投资者服务台账，给出"咨询分级回复模板 + 披露合规边界 + 主动服务策略"三段式建议。\n' +
+    '当前服务态势：\n' + ctx + '\n\n' +
+    '要求：\n' +
+    '1. 投资者咨询分类（评级原因 / 跟踪频率 / 等级变动 / 异议申诉）及标准回复模板（每类不超过 80 字）；\n' +
+    '2. 披露合规红线：哪些信息严禁向单一投资者单独披露（重点：未公开等级 / 委员会内部争议 / 客户经营数据）；\n' +
+    '3. 5 工作日 SLA 风险监控：哪些咨询临近超时；\n' +
+    '4. 主动服务策略：针对债券持有人 / 拟投资机构 / 监管 三类受众的差异化披露日历；\n' +
+    '5. 引用《信息披露制度》《银行间信息披露制度》《关于促进债券市场信用评级行业健康发展的通知》（2021）具体条款。',
+    ctx
+  );
+}
+
+mountLayout('investor-service', renderMain);
+</script>
+</body>
+</html>

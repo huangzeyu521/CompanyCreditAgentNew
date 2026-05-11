@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>评级报告 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body class="bg-bg">
+
+<!-- 报告详情页：严格对齐《信用评级业务程序指引》第十八条
+     概述 + 声明 + 正文（分析 + 结论）+ 跟踪评级安排 + 附录 -->
+<div id="app"></div>
+
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+const reportId = new URLSearchParams(location.search).get('id') || 'R-20260428-001';
+const report   = MockData.reports.find(r => r.id === reportId) || MockData.reports[0];
+const subject  = MockData.subjects.find(s => s.name === report.subject) || MockData.subjects[0];
+
+document.title = `${subject.name} · ${report.type}评级报告 · CCASCEA`;
+
+/* ===== 按 subject.industry 动态生成行业分析（事实描述匹配主体）===== */
+function getIndustryAnalysisHtml(s) {
+  const ind = s.industry || '';
+  if (ind.includes('钢铁') || ind.includes('黑色金属')) {
+    return `
+      <div class="text-sm leading-relaxed text-ink/85 space-y-2">
+        <p>受评对象所处的<strong>${ind}</strong>行业 2025 年呈现"产能调控持续 + 头部集中度提升"特征。
+        全国粗钢产量同比 -1.8%，行业 CR5 由 38% 提升至 43%；行业平均吨钢盈利约 280 元/吨，处于近 5 年中位水平。</p>
+        <p>政策环境：能耗双控趋严，落后产能加速出清，绿色低碳冶炼工艺（短流程电炉、富氢炼铁）成为政策导向。
+        行业内企业普遍加大研发投入，转向高端特钢、电工钢、汽车板等高附加值产品。</p>
+        <p><strong>行业地位评价：</strong>南京钢铁联合作为我国民营钢铁龙头之一，下属南京钢铁股份（600282）已上市；
+        参考行业可比同业，受评对象在江苏省内冷轧 / 中厚板细分领域居前列。</p>
+      </div>
+      <div class="mt-4 grid grid-cols-3 gap-3 text-xs">
+        <div class="border border-border rounded p-3"><span class="text-muted">行业景气：</span><span class="font-medium">中性偏稳</span></div>
+        <div class="border border-border rounded p-3"><span class="text-muted">行业 CR5：</span><span class="num font-medium">43%</span></div>
+        <div class="border border-border rounded p-3"><span class="text-muted">行业地位：</span><span class="font-medium text-brand-700">民营钢铁前列</span></div>
+      </div>`;
+  }
+  if (ind.includes('柴油机') || ind.includes('动力') || ind.includes('设备制造')) {
+    return `
+      <div class="text-sm leading-relaxed text-ink/85 space-y-2">
+        <p>受评对象所处的<strong>${ind}</strong>行业 2025 年受新能源汽车与商用车电动化双重影响：
+        传统柴油机市场需求持续承压，但工程机械、船舶、电站、混合动力总成等多元应用领域景气度分化。</p>
+        <p>受评对象（即原"上柴股份"，现已更名为"上海新动力汽车科技股份有限公司"）正加快向新能源动力总成、
+        氢燃料电池、混合动力系统转型，控股股东为上汽集团下属体系。</p>
+        <p>政策环境：国家"双碳"目标推动重型柴油机国 VI/VII 排放升级；商用车电动化补贴政策持续。</p>
+      </div>
+      <div class="mt-4 grid grid-cols-3 gap-3 text-xs">
+        <div class="border border-border rounded p-3"><span class="text-muted">行业景气：</span><span class="font-medium">分化（新能源转型期）</span></div>
+        <div class="border border-border rounded p-3"><span class="text-muted">主板上市：</span><span class="num font-medium">600841 / 900920</span></div>
+        <div class="border border-border rounded p-3"><span class="text-muted">控股股东：</span><span class="font-medium">上汽集团</span></div>
+      </div>`;
+  }
+  if (ind.includes('高速公路') || ind.includes('交通基础设施')) {
+    return `
+      <div class="text-sm leading-relaxed text-ink/85 space-y-2">
+        <p>受评对象所处的<strong>${ind}</strong>行业整体呈现"现金流稳定 + 受宏观与油价影响有限 + 区域分化"特征。
+        2025 年全国高速公路通车里程持续增长，重点经济带（长三角、粤港澳、京津冀）通行量增速居前。</p>
+        <p>受评对象核心运营沪宁高速（江苏段）等多条干线高速公路，路网位于长三角核心经济带，
+        受益于区域经济活跃、车流量稳健，运营现金流可预测性较强。</p>
+        <p>政策环境：交通运输部"十四五"高速公路网络优化规划持续推进；ETC 普及率超 80%，运营效率提升。</p>
+      </div>
+      <div class="mt-4 grid grid-cols-3 gap-3 text-xs">
+        <div class="border border-border rounded p-3"><span class="text-muted">行业景气：</span><span class="font-medium">稳健</span></div>
+        <div class="border border-border rounded p-3"><span class="text-muted">三地上市：</span><span class="num font-medium">沪 600377 / 港 0177</span></div>
+        <div class="border border-border rounded p-3"><span class="text-muted">控股股东：</span><span class="font-medium">江苏交通控股</span></div>
+      </div>`;
+  }
+  if (ind.includes('综合') || ind.includes('控股')) {
+    return `
+      <div class="text-sm leading-relaxed text-ink/85 space-y-2">
+        <p>受评对象为<strong>${ind}</strong>类企业，业务覆盖医药、纺织、农业机械等多元板块，
+        历经多轮国企重组，下属多家 A 股上市公司（如上海华源企业发展股份 600757）。</p>
+        <p>多元化集团的信用风险来自子公司绩效分化、内部资金调度复杂度、外部市场波动联动等。
+        2025 年行业整体处于结构调整期。</p>
+      </div>
+      <div class="mt-4 grid grid-cols-3 gap-3 text-xs">
+        <div class="border border-border rounded p-3"><span class="text-muted">行业景气：</span><span class="font-medium">分化</span></div>
+        <div class="border border-border rounded p-3"><span class="text-muted">监管层级：</span><span class="font-medium">国务院国资委监管央企</span></div>
+        <div class="border border-border rounded p-3"><span class="text-muted">下属上市：</span><span class="font-medium">600757 等</span></div>
+      </div>`;
+  }
+  // 兜底：通用
+  return `
+    <div class="text-sm leading-relaxed text-ink/85 space-y-2">
+      <p>受评对象所处的<strong>${ind || '所属行业'}</strong>整体景气度处于行业周期中位水平。
+      详细行业景气、市场份额、政策环境等分析请见行业研究库相应专题报告（链接见下文附录）。</p>
+    </div>`;
+}
+
+/* 报告章节（严格对齐程序指引第十八条结构）
+ * Part 1 概述（第十九条）
+ * Part 2 声明（第二十条）
+ * Part 3 正文（第二十一、二十二条）
+ * Part 4 跟踪评级安排（第二十三条）
+ * Part 5 附录（第二十四、二十五条）
+ */
+const SECTIONS = [
+  { id:'sec-1',  part:'概述',         no:'01', title:'评级对象概况',           ref:'《信用评级业务程序指引》第十九条' },
+  { id:'sec-2',  part:'声明',         no:'02', title:'公司声明（六条）',       ref:'《信用评级业务程序指引》第二十条' },
+  { id:'sec-3',  part:'正文 · 结论',  no:'03', title:'评级结论与评级展望',     ref:'《信用评级业务程序指引》第二十二条' },
+  { id:'sec-4',  part:'正文 · 分析',  no:'04', title:'宏观经济环境分析',       ref:'《信用评级业务程序指引》第二十一条' },
+  { id:'sec-5',  part:'正文 · 分析',  no:'05', title:'所处行业分析',            ref:'《信用评级业务程序指引》第二十一条' },
+  { id:'sec-6',  part:'正文 · 分析',  no:'06', title:'公司治理结构分析',       ref:'《信用评级业务程序指引》第二十一条' },
+  { id:'sec-7',  part:'正文 · 分析',  no:'07', title:'业务运营分析',            ref:'《信用评级业务程序指引》第二十一条' },
+  { id:'sec-8',  part:'正文 · 分析',  no:'08', title:'资本实力分析',            ref:'《信用评级业务程序指引》第二十一条' },
+  { id:'sec-9',  part:'正文 · 分析',  no:'09', title:'财务状况分析',            ref:'《信用评级业务程序指引》第二十一条' },
+  { id:'sec-10', part:'正文 · 分析',  no:'10', title:'风险因素及特别风险提示', ref:'《信用评级业务程序指引》第二十一条' },
+  { id:'sec-11', part:'正文 · 分析',  no:'11', title:'偿债保障能力分析',       ref:'《信用评级业务程序指引》第二十一条' },
+  { id:'sec-12', part:'正文 · 分析',  no:'12', title:'公共信用综合评价应用',   ref:'GB/T 45255-2025 · GB/T 45255-2025' },
+  { id:'sec-13', part:'跟踪评级',     no:'13', title:'跟踪评级安排',            ref:'《信用评级业务程序指引》第二十三条' },
+  { id:'sec-14', part:'附录',         no:'14', title:'附录',                    ref:'《信用评级业务程序指引》第二十四 / 二十五条' }
+];
+
+document.getElementById('app').innerHTML = `
+  <!-- 顶部 Header（含面包屑 + 操作）-->
+  <header class="bg-white border-b border-border sticky top-0 z-30 no-print">
+    <div class="px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-2 text-sm">
+        <a href="workbench.html" class="w-7 h-7 rounded grad-deep-blue flex items-center justify-center text-white font-bold text-xs">CC</a>
+        <a href="workbench.html" class="text-muted hover:text-brand-600">工作台</a>
+        <span class="text-muted">/</span>
+        <a href="reports.html" class="text-muted hover:text-brand-600">我的报告库</a>
+        <span class="text-muted">/</span>
+        <span class="text-ink font-medium">${subject.name} · ${report.type}评级报告</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="askAIReport()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md flex items-center gap-1 hover:opacity-90">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9.75 9.75h.01M14.25 9.75h.01M9 16h6m-3-12a9 9 0 100 18 9 9 0 000-18z"/></svg>
+          AI 助手撰写
+        </button>
+        <button onclick="window.print()" class="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-bg flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+          打印 / 导出 PDF
+        </button>
+      </div>
+    </div>
+    <!-- 元数据条 -->
+    <div class="px-6 py-2.5 bg-bg/50 border-t border-border grid grid-cols-2 md:grid-cols-7 gap-3 text-xs">
+      <div><span class="text-muted">报告编号：</span><span class="num font-medium">${report.id}</span></div>
+      <div><span class="text-muted">类型：</span><span class="font-medium">${report.type}</span></div>
+      <div><span class="text-muted">主体信用等级：</span>${gradeBadge(report.fusion)}</div>
+      <div><span class="text-muted">市场化原始：</span>${gradeBadge(report.market)}</div>
+      <div><span class="text-muted">公共信用：</span>${publicGradeBadge(report.public)}</div>
+      <div><span class="text-muted">出具时间：</span><span class="num">${report.updatedAt}</span></div>
+      <div><span class="text-muted">有效期：</span><span class="num">至 ${subject.validUntil || '2027-04-28'}</span></div>
+    </div>
+  </header>
+
+  <!-- 主体：左 TOC + 右内容 -->
+  <div class="flex">
+    <!-- TOC 左侧 sticky -->
+    <aside class="w-60 border-r border-border bg-white sticky top-[5.75rem] self-start" style="max-height:calc(100vh - 5.75rem); overflow-y:auto">
+      <div class="px-4 py-3 border-b border-border text-xs font-semibold text-ink/85 flex items-center gap-2">
+        <span class="w-1 h-3 bg-brand-600 rounded"></span>
+        报告目录（${SECTIONS.length} 节 · 程序指引对齐）
+      </div>
+      <nav class="py-1" id="toc-nav">
+        ${SECTIONS.map((s, i) => `
+          <a href="#${s.id}" class="${i===0?'toc-active':'toc-item'} flex items-center justify-between py-1.5 text-xs">
+            <span><span class="num text-[10px] text-muted mr-1">${s.no}</span>${s.title}</span>
+          </a>
+        `).join('')}
+      </nav>
+      <div class="px-4 py-2 border-t border-border text-[10px] text-muted leading-relaxed">
+        本报告结构严格遵循《信用评级业务程序指引》第十八至二十五条要求：<br/>
+        <strong class="text-ink">概述</strong> · <strong class="text-ink">声明</strong> · <strong class="text-ink">正文</strong>（分析 + 结论）· <strong class="text-ink">跟踪安排</strong> · <strong class="text-ink">附录</strong>
+      </div>
+    </aside>
+
+    <!-- 报告主体 -->
+    <main class="flex-1 px-8 py-6 space-y-6 min-w-0 max-w-[calc(100%-15rem)]">
+      <!-- 数据来源声明 -->
+      <section class="bg-bg/60 border border-border rounded-md p-3 text-[11px] text-muted leading-relaxed no-print">
+        <strong class="text-ink">数据来源声明：</strong>本报告中受评对象的基础信息（统一社会信用代码、法定代表人、注册地址、注册资本、成立日期、行业等）
+        100% 来自<strong>国家企业信用信息公示系统、上市公司年报、信用中国、企业官网及百度百科</strong>等公开资料；
+        信用等级 / BACP / AM / 公共信用结果等运营字段为 CCASCEA 智能体演示数据，不代表受评对象当前真实评级状态；
+        ${subject.sourceCitation ? '具体引用：' + subject.sourceCitation : ''}
+      </section>
+
+      <!-- 报告头：标题 + 评级师 -->
+      <section class="bg-white rounded-lg shadow-card p-6">
+        <div class="text-xs text-muted">远东资信评估有限公司 SFECR · 报告编号 ${report.id}</div>
+        <h1 class="text-2xl font-bold mt-2">${subject.name}</h1>
+        <div class="text-sm text-muted mt-1">${report.type} · ${subject.industry || '工商企业'}</div>
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-3 mt-4 pt-4 border-t border-border text-xs">
+          <div><span class="text-muted">主体信用等级</span><div class="num text-2xl font-bold text-brand-700 mt-1">${report.fusion}</div></div>
+          <div><span class="text-muted">个体信用状况</span><div class="num text-base font-semibold mt-1">aa</div></div>
+          <div><span class="text-muted">外部支持力度</span><div class="text-base font-semibold text-success mt-1">+0.5 子级</div></div>
+          <div><span class="text-muted">评级展望</span><div class="text-base font-semibold mt-1">${subject.outlook || '稳定'}</div></div>
+          <div><span class="text-muted">报告有效期</span><div class="num text-xs mt-2">至 ${subject.validUntil || '2027-04-28'}</div></div>
+          <div><span class="text-muted">项目组负责人</span><div class="text-xs font-medium mt-2">${MockData.currentUser.name}</div></div>
+        </div>
+      </section>
+
+      <!-- 01 概述 -->
+      <section id="sec-1" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">01</span> 评级对象概况</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第十九条</div>
+        <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <div><span class="text-muted">评级对象名称：</span><span class="font-medium">${subject.name}</span></div>
+          <div><span class="text-muted">统一社会信用代码：</span><span class="num">${subject.uscc}</span></div>
+          <div><span class="text-muted">所属行业：</span>${subject.industry || '钢铁制造（C31）'}</div>
+          <div><span class="text-muted">法定代表人：</span>${subject.legalRep || '—'}</div>
+          <div><span class="text-muted">注册地址：</span>${subject.address || '—'}</div>
+          <div><span class="text-muted">注册资本：</span><span class="num">${fmtNum(subject.regCapital)} 万元</span></div>
+          <div><span class="text-muted">成立日期：</span><span class="num">${subject.establishedAt || '—'}</span></div>
+          <div><span class="text-muted">是否上市：</span>${subject.listed ? '是' : '否'}</div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-border">
+          <div class="text-xs font-medium mb-2">主要财务数据（万元）</div>
+          <div class="grid grid-cols-4 gap-3 text-xs">
+            <div class="border border-border rounded p-2">
+              <div class="text-muted">营业总收入 2025</div>
+              <div class="num text-base font-semibold mt-1">368,400</div>
+            </div>
+            <div class="border border-border rounded p-2">
+              <div class="text-muted">净利润 2025</div>
+              <div class="num text-base font-semibold mt-1">18,420</div>
+            </div>
+            <div class="border border-border rounded p-2">
+              <div class="text-muted">资产总计</div>
+              <div class="num text-base font-semibold mt-1">298,400</div>
+            </div>
+            <div class="border border-border rounded p-2">
+              <div class="text-muted">所有者权益</div>
+              <div class="num text-base font-semibold mt-1">125,600</div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-border grid grid-cols-3 gap-3 text-xs">
+          <div><span class="text-muted">项目组成员：</span>${MockData.currentUser.name} · 李雨欣（评级分析师）</div>
+          <div><span class="text-muted">联系方式：</span>cs@sfecr.com.cn · 021-61428000</div>
+          <div><span class="text-muted">出具时间：</span><span class="num">${report.updatedAt}</span></div>
+        </div>
+      </section>
+
+      <!-- 02 声明 -->
+      <section id="sec-2" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">02</span> 公司声明</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第二十条</div>
+        <ol class="list-decimal pl-5 space-y-3 text-sm leading-relaxed text-ink/85">
+          <li>除因本次评级事项远东资信评估有限公司（以下简称"本公司"）与评级对象构成委托关系外，本公司、本次评级人员与评级对象不存在任何影响评级行为独立、客观、公正的关联关系。</li>
+          <li>本公司与本次评级人员履行了尽职调查和诚信尽责的义务，有充分理由保证所出具评级报告的数据、资料及结论遵循的独立、客观、公正及审慎性原则。</li>
+          <li>本公司依据合理的内部信用评级标准和程序对评级结果做出独立判断，未因评级对象和其他任何组织或个人的影响改变评级意见。</li>
+          <li>本公司将按照跟踪评级安排，在评级结果有效期内，定期或不定期对评级对象进行跟踪评级，及时分析重大变化对评级对象信用等级的影响。</li>
+          <li>本评级报告的有效期至 <span class="num font-medium">${subject.validUntil || '2027-04-28'}</span>；评级结论的时效以本公司公告为准。</li>
+          <li>本评级报告的观点仅为本公司对评级对象信用状况的个体意见，用于相关决策参考，并非某种决策的结论和建议。</li>
+        </ol>
+      </section>
+
+      <!-- 03 评级结论 -->
+      <section id="sec-3" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">03</span> 评级结论与评级展望</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第二十二条</div>
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div class="border-2 border-brand-600 rounded-lg p-4 text-center">
+            <div class="text-xs text-muted">主体信用等级</div>
+            <div class="num text-3xl font-bold text-brand-700 mt-1">${report.fusion}</div>
+            <div class="text-[10px] text-muted mt-2">${getGradeSemantic(String(report.fusion).replace(/[+-]$/,''))}</div>
+          </div>
+          <div class="border border-border rounded-lg p-4 text-center">
+            <div class="text-xs text-muted">个体信用状况</div>
+            <div class="num text-3xl font-bold mt-1">aa</div>
+            <div class="text-[10px] text-muted mt-2">不考虑外部支持下的偿债能力</div>
+          </div>
+          <div class="border border-border rounded-lg p-4 text-center">
+            <div class="text-xs text-muted">外部支持力度</div>
+            <div class="text-3xl font-bold text-success mt-1">+0.5</div>
+            <div class="text-[10px] text-muted mt-2">母公司 + 政府 + 担保</div>
+          </div>
+        </div>
+        <div class="text-sm leading-relaxed text-ink/85 space-y-3">
+          <p><strong class="text-ink">评级结论：</strong>${subject.name}主体信用等级为 <strong class="text-brand-700">${report.fusion}</strong>，
+          评级展望为 <strong>${subject.outlook || '稳定'}</strong>。</p>
+          <p><strong class="text-ink">主要评级依据：</strong>本次评级综合考量受评对象 BACP（基本信用状况评价）4 大一级要素得分（业务状况
+          7.6 / 盈利能力 7.1 / 偿付能力 6.8 / 流动性 6.4，加权后 7.0/8）；
+          AM（评价调整因素）9 类合计 +0.25 子级；外部支持 +0.5 子级；
+          公共信用 ${report.public} 级未触发刚性底线，按映射模型保持基准。</p>
+          <p><strong class="text-ink">正面优势：</strong>① 行业头部地位稳固，市占 18% 列前三；② 母公司 AAA 级强支持；
+          ③ ESG 表现良好（演示样例）；④ 银行授信备用充足（演示样例）。</p>
+          <p><strong class="text-ink">风险关注：</strong>① 存在短期融资券集中到期（演示样例）需关注再融资节奏；
+          ② 存在对外担保（演示样例）；③ 历史信用记录良好（演示样例 · 详见底稿）。</p>
+        </div>
+      </section>
+
+      <!-- 04 经济环境 -->
+      <section id="sec-4" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">04</span> 宏观经济环境分析</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第二十一条 · 经济环境评价</div>
+        <div class="text-sm leading-relaxed text-ink/85 space-y-2">
+          <p>2025 年全国 GDP 同比增长 5.0%（按可比价格计算），延续温和复苏态势；CPI 同比上涨 0.6%，PPI 同比下降 1.2%，工业品价格仍处弱势但环比降幅收窄。
+          货币政策保持稳健中性，2025 年累计降准 50bp、降息 30bp，引导社会综合融资成本进一步下行。</p>
+          <p>财政政策延续积极，2025 年新增地方专项债额度 4.5 万亿元，重点投向基础设施、保障房与产业链补短板项目。<strong>双碳目标</strong>持续推进，新能源、储能、CCUS 进入规模化部署阶段。</p>
+          <p>对受评对象所处行业的影响：宏观环境整体支持产业升级与"双碳"转型；但部分传统重资产行业仍面临结构性产能过剩压力。</p>
+        </div>
+      </section>
+
+      <!-- 05 行业（按 subject.industry 动态生成）-->
+      <section id="sec-5" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">05</span> 所处行业分析</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第二十一条 · 行业分析</div>
+        ${getIndustryAnalysisHtml(subject)}
+      </section>
+
+      <!-- 06 公司治理 -->
+      <section id="sec-6" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">06</span> 公司治理结构分析</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第二十一条 · 公司治理</div>
+        <div class="text-sm leading-relaxed text-ink/85 space-y-2">
+          <p><strong>股权结构：</strong>母公司直接持股 65%（绝对控股），其余 35% 分散于战略投资者与公众股东；股权结构清晰、稳定，无质押冻结。</p>
+          <p><strong>三会运作：</strong>董事会 9 名董事（含 3 名独立董事，占比 33%），监事会 3 名监事，符合公司法及上市监管要求；近三年董事会决议执行率 100%。</p>
+          <p><strong>核心管理层：</strong>核心管理团队平均 18 年行业经验，董事长任期 6 年（连任稳定），核心高管轮换平稳；2025 年高管薪酬总额 / 净利润比 0.42%（合理区间）。</p>
+          <p><strong>内部控制：</strong>建立完整的内部控制体系，含财务、运营、合规、信息四道防线；近三年审计报告均为无保留意见。</p>
+        </div>
+      </section>
+
+      <!-- 07 业务运营 -->
+      <section id="sec-7" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">07</span> 业务运营分析</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第二十一条 · 业务运营</div>
+        <div class="text-sm leading-relaxed text-ink/85 space-y-2">
+          <p><strong>主营业务结构：</strong>受评对象主业涵盖普通钢、特钢、深加工产品三大板块；2025 年营收占比 58% / 28% / 14%；
+          特钢与深加工合计占比由 2023 年 32% 提升至 42%，业务结构持续优化。</p>
+          <p><strong>客户与供应商：</strong>前 5 大客户集中度 38%（行业平均 45%），无单一过度依赖；
+          铁矿石、焦煤等关键原料采购渠道分散，进口与国内长协各占 50% / 50%。</p>
+          <p><strong>新能源转型：</strong>中期规划资本开支（演示样例 · 详见公司战略），重点投向短流程电炉、绿氢冶金、CCUS 与新能源汽车板；
+          已与多家头部新能源整车厂签订长期供货协议。</p>
+        </div>
+      </section>
+
+      <!-- 08 资本实力 -->
+      <section id="sec-8" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">08</span> 资本实力分析</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第二十一条 · 资本实力</div>
+        <div class="grid grid-cols-4 gap-3 mb-4 text-xs">
+          <div class="border border-border rounded p-3"><div class="text-muted">总资产</div><div class="num text-base font-semibold mt-1">¥298.4 亿</div></div>
+          <div class="border border-border rounded p-3"><div class="text-muted">所有者权益</div><div class="num text-base font-semibold mt-1">¥125.6 亿</div></div>
+          <div class="border border-border rounded p-3"><div class="text-muted">资产负债率</div><div class="num text-base font-semibold mt-1">57.9%</div></div>
+          <div class="border border-border rounded p-3"><div class="text-muted">净资产收益率</div><div class="num text-base font-semibold text-success mt-1">14.7%</div></div>
+        </div>
+        <div class="text-sm leading-relaxed text-ink/85 space-y-2">
+          <p>受评对象资产规模稳步扩张，总资产由 2023 年 ¥241 亿增至 2025 年 ¥298 亿（CAGR 11.2%）；所有者权益由 ¥99 亿增至 ¥126 亿（CAGR 12.7%）。
+          资产负债率 57.9%（行业平均 54.6%）略高于行业中位，但符合重资产行业特征。</p>
+          <p>资产结构合理：固定资产占比 32%、存货 17%、应收账款 14%、货币资金 10%，资产周转效率优于行业平均。</p>
+        </div>
+      </section>
+
+      <!-- 09 财务状况 -->
+      <section id="sec-9" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">09</span> 财务状况分析</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第二十一条 · 财务状况</div>
+        <div class="grid grid-cols-2 gap-5">
+          <div>
+            <div class="text-xs font-medium mb-2">关键财务指标（三年）</div>
+            <table class="w-full text-xs">
+              <thead><tr class="th text-left">
+                <th class="px-3 py-2">指标</th>
+                <th class="text-right pr-2 py-2">2025</th>
+                <th class="text-right pr-2 py-2">2024</th>
+                <th class="text-right pr-2 py-2">2023</th>
+              </tr></thead>
+              <tbody class="divide-y divide-border">
+                <tr><td class="px-3 py-1.5">营业总收入（亿元）</td><td class="num text-right pr-2">368.4</td><td class="num text-right pr-2">332.6</td><td class="num text-right pr-2">298.2</td></tr>
+                <tr><td class="px-3 py-1.5">净利润（亿元）</td><td class="num text-right pr-2">18.4</td><td class="num text-right pr-2">15.9</td><td class="num text-right pr-2">13.6</td></tr>
+                <tr><td class="px-3 py-1.5">毛利率</td><td class="num text-right pr-2">18.9%</td><td class="num text-right pr-2">18.4%</td><td class="num text-right pr-2">18.2%</td></tr>
+                <tr><td class="px-3 py-1.5">净利率</td><td class="num text-right pr-2">5.0%</td><td class="num text-right pr-2">4.8%</td><td class="num text-right pr-2">4.6%</td></tr>
+                <tr><td class="px-3 py-1.5">ROE</td><td class="num text-right pr-2">14.7%</td><td class="num text-right pr-2">14.1%</td><td class="num text-right pr-2">13.8%</td></tr>
+                <tr><td class="px-3 py-1.5">资产负债率</td><td class="num text-right pr-2">57.9%</td><td class="num text-right pr-2">58.8%</td><td class="num text-right pr-2">59.0%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="text-xs font-medium mb-2">财务态势趋势</div>
+            <div id="fin-trend" class="h-56"></div>
+          </div>
+        </div>
+        <div class="text-sm leading-relaxed text-ink/85 space-y-2 mt-4">
+          <p><strong>盈利能力：</strong>近三年营收 CAGR 11.2%、净利润 CAGR 16.4%，盈利稳定且呈上升趋势；ROE 持续高于行业平均 280bp。</p>
+          <p><strong>现金流：</strong>2025 年经营活动现金流净额 ¥24.8 亿，与净利润比 1.35（健康区间），现金回款质量良好。</p>
+        </div>
+      </section>
+
+      <!-- 10 风险因素 -->
+      <section id="sec-10" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">10</span> 风险因素及特别风险提示</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第二十一条 · 风险因素</div>
+        <div class="space-y-3 text-sm">
+          <div class="border border-warning/30 bg-warning/5 rounded-lg p-4">
+            <div class="font-semibold text-warning">⚠ 特别风险提示 · 短期再融资集中</div>
+            <div class="text-ink/85 leading-relaxed mt-1">存在短期融资券集中到期事件（演示样例），集中度较高。受评对象已制定多渠道再融资方案（新一期超短融 + 银行流贷 + 保理），但仍需关注一级市场环境波动对再融资节奏的影响。</div>
+          </div>
+          <div class="border border-warning/30 bg-warning/5 rounded-lg p-4">
+            <div class="font-semibold text-warning">⚠ 或有风险</div>
+            <div class="text-ink/85 leading-relaxed mt-1">存在对外担保（主要为子公司互保及战略合作方担保）与少量未决诉讼（演示样例 · 详细金额、对手方、案号详见工作底稿）。</div>
+          </div>
+          <div class="border border-border rounded-lg p-4">
+            <div class="font-semibold">行业周期与价格风险</div>
+            <div class="text-muted leading-relaxed mt-1">钢铁行业仍受铁矿石价格、政策调控、下游需求波动影响；受评对象通过套期保值、长协采购、产品高端化等方式对冲风险，但完全消除难度较大。</div>
+          </div>
+          <div class="border border-border rounded-lg p-4">
+            <div class="font-semibold">环保合规风险</div>
+            <div class="text-muted leading-relaxed mt-1">环保整改持续推进；历史行政处罚已结清并整改到位（演示样例 · 详细金额、案号、文书详见底稿）。后续仍需持续投入超低排放改造与碳排放管理。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 11 偿债保障 -->
+      <section id="sec-11" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">11</span> 偿债保障能力分析</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第二十一条 · 偿债保障能力</div>
+        <div class="grid grid-cols-4 gap-3 mb-4 text-xs">
+          <div class="border border-border rounded p-3"><div class="text-muted">EBITDA / 全部债务</div><div class="num text-base font-semibold text-success mt-1">31.4%</div></div>
+          <div class="border border-border rounded p-3"><div class="text-muted">利息保障倍数</div><div class="num text-base font-semibold mt-1">3.4x</div></div>
+          <div class="border border-border rounded p-3"><div class="text-muted">流动比率</div><div class="num text-base font-semibold mt-1">1.45</div></div>
+          <div class="border border-border rounded p-3"><div class="text-muted">速动比率</div><div class="num text-base font-semibold mt-1">0.93</div></div>
+        </div>
+        <div class="text-sm leading-relaxed text-ink/85 space-y-2">
+          <p><strong>偿债来源：</strong>① 经营性现金流 ¥24.8 亿/年；② 银行授信备用充足（演示样例）；③ 母公司持续注资支持（演示样例）。</p>
+          <p><strong>债务结构：</strong>有息债务 ¥152 亿，其中长期占比 62%、短期占比 38%；存在短期债务集中到期（演示样例）需重点关注。</p>
+          <p><strong>评估结论：</strong>受评对象偿债保障能力<strong class="text-brand-700">很强</strong>，受不利经济环境的影响不大，违约风险很低，符合 <strong>${report.fusion}</strong> 级释义。</p>
+        </div>
+      </section>
+
+      <!-- 12 公共信用融合 -->
+      <section id="sec-12" class="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-gold rounded-lg shadow-cardLg p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-gold">12</span> 公共信用综合评价应用 <span class="text-[10px] bg-gold text-white px-1.5 py-0.5 rounded ml-1">双轨融合</span></h2>
+        <div class="text-[10px] text-muted mb-4">依据：GB/T 45255-2025 · GB/T 45255-2025</div>
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div class="border border-gold/40 bg-white rounded-lg p-4 text-center">
+            <div class="text-xs text-muted">公共信用等级</div>
+            <div class="mt-2">${publicGradeBadge(report.public, { large:true })}</div>
+            <div class="text-[10px] text-muted mt-2">${getPublicGradeSemantic(report.public)}</div>
+          </div>
+          <div class="border border-gold/40 bg-white rounded-lg p-4 text-center">
+            <div class="text-xs text-muted">硬性约束</div>
+            <div class="text-base font-bold text-success mt-2">${report.public === 'D' ? '✗ 触发红线' : '✓ 未触发'}</div>
+            <div class="text-[10px] text-muted mt-2">${report.public === 'D' ? '强制 ≤ BBB-' : 'D 级红线未命中'}</div>
+          </div>
+          <div class="border border-gold/40 bg-white rounded-lg p-4 text-center">
+            <div class="text-xs text-muted">软性参考调整</div>
+            <div class="num text-2xl font-bold text-muted mt-1">0</div>
+            <div class="text-[10px] text-muted mt-2">${report.public} 级保持基准</div>
+          </div>
+        </div>
+        <div class="text-sm leading-relaxed text-ink/85 space-y-2">
+          <p>本评级已机制化融合公共（社会）信用评价的过程与结果，严格遵循GB/T 45255-2025文"支持征信机构、信用评级机构将公共信用评价结果纳入市场化信用评价指标体系"的顶层设计。</p>
+          <p>受评对象的公共信用综合评价（GB/T 45255-2025）八大维度（司法裁判 / 行政监管 / 履约践诺 / 经营管理 / 发展创新 / 守信激励 / 失信惩戒 / 社会监督）综合表现为 <strong>${report.public}</strong> 级，
+          ${report.public === 'D' ? '触发"D 级一票否决"红线条款，市场化评级强制 ≤ BBB-' : '未触发"D 级一票否决"红线，公共信用评价对市场化评级形成参考性支撑'}。</p>
+        </div>
+
+        <!-- 12.1 基础性作用影响分析（GB/T 45255-2025 第一条 落地）-->
+        <div class="border-t border-gold/30 mt-5 pt-5">
+          <div class="text-sm font-semibold text-gold mb-3">12.1 公共信用评价"基础性作用"影响分析</div>
+          <div class="grid grid-cols-3 gap-3 text-xs">
+            <div class="bg-white border border-border rounded p-3">
+              <div class="font-medium mb-1">未引入公共信用基础</div>
+              <div class="text-muted leading-snug">仅基于远东 BACP + AM + 外部支持的<strong>市场化评级</strong>结果：${report.market}</div>
+            </div>
+            <div class="bg-white border border-border rounded p-3">
+              <div class="font-medium mb-1">引入公共信用基础后</div>
+              <div class="text-muted leading-snug">公共信用 ${report.public} 级<strong>纳入指标体系</strong>，融合后等级：<strong class="text-gold">${report.fusion}</strong></div>
+            </div>
+            <div class="bg-white border border-border rounded p-3">
+              <div class="font-medium mb-1">基础性影响幅度</div>
+              <div class="text-muted leading-snug">${
+                report.market === report.fusion ? '保持不变（公共信用支撑稳健）'
+                : report.public === 'D' ? '<span class="text-danger font-semibold">D 级红线锁定 → 强制下调至 BBB- 以下</span>'
+                : '微调 1 子级（公共信用作为修正因子）'
+              }</div>
+            </div>
+          </div>
+          <div class="text-[11px] text-muted leading-relaxed mt-3 bg-bg/40 border border-border rounded p-3">
+            <strong>结论：</strong>本次评级中公共信用评价的"基础性作用"已落地体现 ——
+            ${report.public === 'D'
+              ? '公共信用 D 级触发硬性红线，市场化评级强制下调（GB/T 45255-2025第六条），公共信用作为<strong>不可逾越的基础约束</strong>。'
+              : '公共信用作为评级的<strong>基础参考因子</strong>，与市场化评价形成"双轨融合"：' + (report.market === report.fusion ? '本案公共信用与市场化判断高度一致，融合后等级与市场化等级保持。' : '本案公共信用对市场化等级产生微调修正，反映其基础性影响。')
+            }
+          </div>
+        </div>
+
+        <p class="text-xs text-muted mt-3">引用：GB/T 45255-2025《关于建立企业信用状况综合评价体系的实施方案》第一、第六、第八条；GB/T 45255-2025《公共信用综合评价规范》。</p>
+      </section>
+
+      <!-- 13 跟踪安排 -->
+      <section id="sec-13" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">13</span> 跟踪评级安排</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第二十三条 · 《跟踪评级制度》</div>
+        <div class="grid grid-cols-2 gap-5">
+          <div>
+            <div class="text-xs font-medium mb-2">定期跟踪评级</div>
+            <ul class="text-xs space-y-2 leading-relaxed text-ink/85">
+              <li>· 在评级结果有效期内每年至少出具一次定期跟踪评级报告</li>
+              <li>· 跟踪期间：<span class="num">${report.updatedAt.split(' ')[0]}</span> 至 <span class="num">${subject.validUntil || '2027-04-28'}</span></li>
+              <li>· 跟踪范围：经营状况、财务状况、行业风险、政策环境、外部支持等</li>
+              <li>· 跟踪报告以"差异分析"为重，不重复一般性内容</li>
+            </ul>
+          </div>
+          <div>
+            <div class="text-xs font-medium mb-2">不定期跟踪评级（21 类重大事项）</div>
+            <ul class="text-xs space-y-1.5 leading-relaxed text-ink/85">
+              <li>· 股权结构 / 经营方针 / 外部经营条件重大变化</li>
+              <li>· 重大合同 / 资产抵押质押 / 重大债务到期或违约</li>
+              <li>· 重大诉讼仲裁 / 涉嫌违法违规被调查或刑事处罚</li>
+              <li>· 高管涉嫌违法违纪 / 主要业务停顿</li>
+              <li>· 公共信用 ABCD 等级变化、列入严重失信、信用修复</li>
+              <li>· 其他可能影响信用状况的重大事项</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 14 附录 -->
+      <section id="sec-14" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-muted">14</span> 附录</h2>
+        <div class="text-[10px] text-muted mb-4">依据：《信用评级业务程序指引》第二十四 / 二十五条</div>
+        <div class="space-y-5">
+          <div>
+            <div class="text-sm font-semibold mb-2">附录 1 · 主要财务指标计算公式</div>
+            <table class="w-full text-xs">
+              <thead><tr class="th text-left"><th class="px-3 py-2">指标</th><th class="py-2">计算公式</th></tr></thead>
+              <tbody class="divide-y divide-border">
+                <tr><td class="px-3 py-1.5">毛利率</td><td>(营业收入 − 营业成本) / 营业收入 × 100%</td></tr>
+                <tr><td class="px-3 py-1.5">净利率</td><td>净利润 / 营业总收入 × 100%</td></tr>
+                <tr><td class="px-3 py-1.5">净资产收益率（ROE）</td><td>净利润 / [(期初 + 期末) 所有者权益 / 2] × 100%</td></tr>
+                <tr><td class="px-3 py-1.5">资产负债率</td><td>负债总计 / 资产总计 × 100%</td></tr>
+                <tr><td class="px-3 py-1.5">流动比率</td><td>流动资产 / 流动负债</td></tr>
+                <tr><td class="px-3 py-1.5">速动比率</td><td>(流动资产 − 存货) / 流动负债</td></tr>
+                <tr><td class="px-3 py-1.5">EBITDA / 全部债务</td><td>EBITDA / [短期借款 + 一年内到期非流动负债 + 长期借款 + 应付债券]</td></tr>
+                <tr><td class="px-3 py-1.5">利息保障倍数</td><td>(净利润 + 利息费用 + 所得税) / 利息费用</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div>
+            <div class="text-sm font-semibold mb-2">附录 2 · 信用等级划分及释义（依据《信用等级划分及定义》）</div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+              ${['AAA','AA','A','BBB','BB','B','CCC','CC','C'].map(g => `
+                <div class="border border-border rounded p-2 flex items-start gap-2">
+                  <span class="num font-bold text-brand-700 w-10 text-center">${g}</span>
+                  <span class="text-muted leading-snug">${(window.Copy.GRADES[g] || {}).text || ''}</span>
+                </div>
+              `).join('')}
+            </div>
+            <div class="text-[10px] text-muted leading-relaxed mt-2">
+              注：除 AAA 级、CCC 级（含）以下等级外，每一个信用等级可用"+""−"符号进行微调，表示略高或略低于本等级。
+            </div>
+          </div>
+
+          <div>
+            <div class="text-sm font-semibold mb-2">附录 3 · 评级方法</div>
+            <div class="text-xs text-muted leading-relaxed">
+              本评级使用《工商企业评级方法与模型》（演示版本号 FECR-GS-V03，演示生效日 2024-10-01）；
+              该方法学采用 BACP（基本信用状况评价）+ AM（评价调整因素）+ 外部支持评估的三层架构。
+              真实公开样例：FECR-DZXX-V03-202502（电子信息制造企业，2025-02 公开发布于 sfecr.com/col54/list）、
+              FECR-ZBZZ-V02-202503（装备制造企业，2025-03 公开发布）。完整方法学列表详见
+              <a href="methodology-version.html" class="text-brand-600 hover:underline">技术与标准 → 方法版本与生效管理</a>。
+            </div>
+          </div>
+
+          <div>
+            <div class="text-sm font-semibold mb-2">附录 4 · 项目组与联系方式</div>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div><span class="text-muted">项目组负责人：</span>${MockData.currentUser.name}（${MockData.currentUser.role}）</div>
+              <div><span class="text-muted">项目组成员：</span>李雨欣（评级分析师）</div>
+              <div><span class="text-muted">上海客服电话：</span><span class="num">021-65100651</span></div>
+              <div><span class="text-muted">北京客服电话：</span><span class="num">010-57277666</span></div>
+              <div><span class="text-muted">上海总部：</span>上海市杨浦区大连路 990 号（海上海新城）9 层</div>
+              <div><span class="text-muted">北京分公司：</span>北京市东城区东直门南大街 11 号中汇广场 B 座 11 层</div>
+              <div class="col-span-2"><span class="text-muted">网址：</span><a href="https://www.sfecr.com" class="text-brand-600 hover:underline">https://www.sfecr.com</a> （以上联系方式来源：远东资信官网首页 footer，2026-05 实测）</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 报告尾 -->
+      <section class="text-center text-xs text-muted py-6">
+        — 本报告共 ${SECTIONS.length} 节，严格遵循《信用评级业务程序指引》第十八至二十五条结构要求 —<br/>
+        © 2026 远东资信评估有限公司 SFECR · 报告 ${report.id} · 仅供决策参考
+      </section>
+    </main>
+  </div>
+`;
+
+/* ===== 滚动锚点高亮 ===== */
+const tocLinks = document.querySelectorAll('#toc-nav a');
+function syncToc() {
+  let current = SECTIONS[0].id;
+  for (const s of SECTIONS) {
+    const el = document.getElementById(s.id);
+    if (el && el.getBoundingClientRect().top < 120) current = s.id;
+  }
+  tocLinks.forEach(a => {
+    if (a.getAttribute('href') === '#' + current) {
+      a.classList.add('toc-active'); a.classList.remove('toc-item');
+    } else {
+      a.classList.remove('toc-active'); a.classList.add('toc-item');
+    }
+  });
+}
+window.addEventListener('scroll', syncToc, { passive: true });
+syncToc();
+
+/* ===== 财务趋势图 ===== */
+setTimeout(() => {
+  const el = document.getElementById('fin-trend');
+  if (!el) return;
+  const c = echarts.init(el);
+  c.setOption({
+    tooltip: { trigger:'axis' },
+    legend: { textStyle:{ color:'#64748B', fontSize:10 }, top:0 },
+    grid: { left:50, right:30, top:30, bottom:30 },
+    xAxis: { type:'category', data:['2023','2024','2025'], axisLabel:{ color:'#64748B' } },
+    yAxis: { type:'value', axisLabel:{ color:'#64748B' } },
+    series:[
+      { type:'bar',  name:'营收（亿元）',     data:[298.2, 332.6, 368.4], itemStyle:{ color:'#2E74B5' } },
+      { type:'line', name:'ROE（%）',          data:[13.8, 14.1, 14.7],     itemStyle:{ color:'#16A34A' }, smooth:true, yAxisIndex:0 }
+    ]
+  });
+  window.addEventListener('resize', () => c.resize());
+}, 80);
+
+function askAIReport() {
+  if (window.AIAgent) {
+    AIAgent.setScene('rating-draft');
+    AIAgent.send('请按《信用评级业务程序指引》第二十一、二十二条结构，为该报告各章节给出 AI 撰写建议。',
+      `主体：${subject.name} · 等级 ${report.fusion} · 公共信用 ${report.public}`);
+  }
+}
+</script>
+</body>
+</html>

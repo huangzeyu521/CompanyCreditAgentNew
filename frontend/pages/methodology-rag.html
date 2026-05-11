@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>方法学知识库（私有 RAG）· CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 方法学知识库 私有 RAG（FR-C-001 / FR-C-009）============== */
+function renderMain() {
+  const ms = MockData.methodologies;
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            方法学知识库（私有 RAG）
+            <span class="text-xs text-muted font-normal">FR-C-001 · FR-C-009</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            内建 ${ms.length}+ 份远东资信评级方法学的私有 RAG 知识库；支持自然语言问答与原文定位（页码 / 段落级溯源）；
+            按《评级方法、模型与程序的生效改进定期审查制度》管理版本生效与废止。
+          </p>
+        </div>
+        <button onclick="askRAG()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">RAG 问答</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">方法学总数</div><div class="num text-2xl font-bold text-brand-600 mt-1">${ms.length}+</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">总页数</div><div class="num text-2xl font-bold text-brand-700 mt-1">${ms.reduce((s,m)=>s+m.pages,0)}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">向量化分块</div><div class="num text-2xl font-bold text-success mt-1">14,820</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本月问答</div><div class="num text-2xl font-bold text-brand-600 mt-1">684</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">可溯源率</div><div class="num text-2xl font-bold text-success mt-1">100%</div></div>
+      </div>
+    </section>
+
+    <!-- 方法学列表 -->
+    <section class="grid grid-cols-3 gap-5">
+      <div class="col-span-2 bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            方法学版本与生效（${ms.length}）
+          </h3>
+          <input placeholder="搜索方法学..." class="text-xs px-2 py-1 border border-border rounded focus:outline-none focus:border-accent w-48" />
+        </div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2">编号</th>
+            <th class="py-2">名称</th>
+            <th class="py-2">行业</th>
+            <th class="py-2">版本</th>
+            <th class="py-2">生效</th>
+            <th class="py-2">页数</th>
+            <th class="py-2 pr-4 text-right">操作</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border text-xs">
+            ${ms.map(m => `
+              <tr class="hover:bg-bg">
+                <td class="px-4 py-2 num text-[11px]">${m.id}</td>
+                <td class="text-sm font-medium">${m.name}</td>
+                <td class="text-muted">${m.industry}</td>
+                <td class="num">${m.ver}</td>
+                <td class="num text-muted">${m.effective}</td>
+                <td class="num text-muted">${m.pages}</td>
+                <td class="text-right pr-4"><a href="#" onclick="openMethod('${m.id}');return false" class="text-brand-600 hover:underline">查看 →</a></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- RAG 问答 -->
+      <div class="bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            RAG 问答示例
+          </h3>
+        </div>
+        <div class="p-4 space-y-3">
+          <div class="border border-brand-100 bg-brand-50 rounded p-3 text-xs">
+            <div class="font-medium text-brand-700">问：工商企业评级 BACP 包含哪些一级要素？</div>
+          </div>
+          <div class="border border-border rounded p-3 text-xs leading-relaxed">
+            <div class="text-ink/85">答：BACP（基本信用状况评价）共包含 4 个一级要素：业务状况（30%）、盈利能力（25%）、偿付能力（25%）、流动性（20%）。每要素下设若干二级指标，按 8 档阈值打分（1-8 分），线性加权汇总。</div>
+            <div class="mt-2 pt-2 border-t border-border text-[10px] text-muted">
+              <strong>引用：</strong>《工商企业评级方法 V03》P22-26
+            </div>
+          </div>
+          <div class="border border-brand-100 bg-brand-50 rounded p-3 text-xs">
+            <div class="font-medium text-brand-700">问：AM 调整因素中"或有风险"如何打分？</div>
+          </div>
+          <div class="border border-border rounded p-3 text-xs leading-relaxed">
+            <div class="text-ink/85">答：或有风险按对外担保金额、未决诉讼标的、抵质押对外承诺三类计算。担保 / 净资产 ≥ 30% 扣 1 子级；20-30% 扣 0.5；10-20% 扣 0.25；&lt; 10% 不扣。</div>
+            <div class="mt-2 pt-2 border-t border-border text-[10px] text-muted">
+              <strong>引用：</strong>《工商企业评级方法 V03》P82
+            </div>
+          </div>
+          <button onclick="askRAG()" class="w-full text-xs py-2 bg-brand-600 text-white rounded hover:bg-brand-700">打开完整 RAG 问答</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 版本管理（C9）-->
+    <section class="bg-white rounded-lg shadow-card mt-5 p-5">
+      <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        方法学版本与生效管理（FR-C-009）
+      </h3>
+      <div class="grid grid-cols-3 gap-4 text-xs">
+        <div class="border border-border rounded p-3">
+          <div class="font-medium">评级标准委员会审议</div>
+          <div class="text-muted mt-1 leading-snug">新方法学经评级标准委员会审议生效；2/3 以上委员同意通过。</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="font-medium">版本号 + 生效日期</div>
+          <div class="text-muted mt-1 leading-snug">每份方法学绑定 ver / effective；旧版本同时废止；历史保留。</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="font-medium">在用方法学一览</div>
+          <div class="text-muted mt-1 leading-snug">系统记录每个项目实际使用的方法学版本（不可篡改）。</div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function openMethod(id) {
+  const m = MockData.methodologies.find(x => x.id === id);
+  if (!m) return;
+  openModal({
+    title: m.name,
+    width: 'max-w-3xl',
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="grid grid-cols-3 gap-4 text-xs">
+          <div><span class="text-muted">版本：</span><span class="num">${m.ver}</span></div>
+          <div><span class="text-muted">生效日期：</span><span class="num">${m.effective}</span></div>
+          <div><span class="text-muted">页数：</span><span class="num">${m.pages}</span></div>
+        </div>
+        <div class="border border-border rounded p-3 text-xs">
+          <div class="font-medium mb-1">主要章节</div>
+          <ol class="list-decimal pl-5 space-y-0.5 text-muted">
+            <li>引言与适用范围</li>
+            <li>评级框架与基本假设</li>
+            <li>BACP 基本信用状况评价（一级 / 二级指标 / 阈值）</li>
+            <li>AM 评价调整因素</li>
+            <li>外部支持评估</li>
+            <li>等级映射规则</li>
+            <li>跟踪评级要点</li>
+            <li>附录：术语与计算规则</li>
+          </ol>
+        </div>
+      </div>
+    `,
+    footer: '<button onclick="closeModal()" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">关闭</button>'
+  });
+}
+
+function askRAG() {
+  AIAgent.setScene('kb-rag');
+  AIAgent.open();
+}
+
+mountLayout('methodology-rag', renderMain);
+</script>
+</body>
+</html>

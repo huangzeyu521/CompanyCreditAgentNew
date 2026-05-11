@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>三级审核工作台 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 三级审核工作台（FR-D-004）============== */
+function renderMain() {
+  const tr = MockData.threeReview;
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            三级审核工作台
+            <span class="text-xs text-muted font-normal">FR-D-004 · 项目组初审 → 部门二审 → 公司三审</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            按《信用评级业务程序指引》第三十一条：后一级审核建立在前一级通过基础上；任一级别可退回修改并留痕。
+            评级总监三审签字方可提交信评委审议。
+          </p>
+        </div>
+        <button onclick="askAIReview()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+    </section>
+
+    <!-- 流转时间轴 -->
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <h3 class="text-sm font-semibold flex items-center gap-2 mb-4">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        审核流转：南京钢铁联合有限公司 · 主体跟踪
+      </h3>
+      <div class="grid grid-cols-3 gap-4">
+        ${tr.map((s, i) => {
+          const isDone = s.verdict !== '待审';
+          const cls = isDone ? 'border-success bg-success/5' : 'border-warning bg-warning/5';
+          return `
+            <div class="border-2 ${cls} rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="w-8 h-8 rounded-full ${isDone?'bg-success':'bg-warning'} text-white flex items-center justify-center text-xs font-bold">${i+1}</div>
+                <div>
+                  <div class="text-sm font-semibold">${s.stage}</div>
+                  <div class="text-[10px] text-muted">${s.reviewer}</div>
+                </div>
+              </div>
+              <div class="text-xs ${isDone?'text-success':'text-warning'} font-medium">${s.verdict}</div>
+              <div class="text-[11px] text-muted num mt-1">${s.reviewedAt}</div>
+              <div class="text-xs text-ink/85 leading-snug mt-2">${s.remarks}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </section>
+
+    <!-- 三审操作面板 -->
+    <section class="grid grid-cols-3 gap-5">
+      <div class="col-span-2 bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            评级报告关键要素
+          </h3>
+        </div>
+        <div class="p-5 space-y-3 text-sm">
+          <div class="grid grid-cols-3 gap-3">
+            <div><span class="text-xs text-muted">拟定主体等级</span><div class="num text-xl font-bold text-brand-600 mt-1">AA-</div></div>
+            <div><span class="text-xs text-muted">展望</span><div class="text-xl font-bold mt-1">稳定</div></div>
+            <div><span class="text-xs text-muted">公共信用</span><div class="mt-1">${publicGradeBadge('B', { large:true })}</div></div>
+          </div>
+          <div class="border-t border-border pt-3">
+            <div class="text-xs font-medium mb-2">评级要素摘要</div>
+            <ul class="text-xs space-y-1 leading-relaxed text-ink/85">
+              <li>· BACP 综合 7.0 / 8 → 个体等级 aa（业务 7.6 / 盈利 7.1 / 偿付 6.8 / 流动性 6.4）</li>
+              <li>· AM 调整合计 +0.25 子级（管理 +0.5、ESG +0.25、或有 -0.5、风控 +0.25 等 9 项）</li>
+              <li>· 外部支持 +0.5（母公司强支持 + 政府中支持 + 担保弱支持）</li>
+              <li>· 公共信用 B 级保持基准；未触发 D 级红线</li>
+              <li>· 同业对标：行业前 30%；ROE 优于均值；资产负债率略高</li>
+            </ul>
+          </div>
+          <div class="border-t border-border pt-3">
+            <div class="text-xs font-medium mb-2">关键风险点</div>
+            <ul class="text-xs space-y-1 leading-relaxed">
+              <li class="text-warning">⚠ 存在短期债务集中到期（演示样例），建议跟踪发行计划与备选方案</li>
+              <li class="text-warning">⚠ 存在对外担保（演示样例 · 详见底稿）</li>
+              <li class="text-warning">⚠ 历史信用：历史信用记录良好（演示样例 · 详见底稿）</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            三审操作
+          </h3>
+        </div>
+        <div class="p-4 space-y-3 text-xs">
+          <div class="p-3 bg-warning/5 border border-warning/30 rounded">
+            <div class="text-warning font-semibold">待审：评级总监 周建华</div>
+            <div class="text-muted mt-1 leading-relaxed">
+              请确认主体等级、展望、关键风险点是否符合公司评级标准。
+              三审通过后将生成信评委议程包。
+            </div>
+          </div>
+          <div>
+            <label class="text-xs text-muted">三审意见 <span class="text-danger">*</span></label>
+            <textarea rows="4" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm" placeholder="请输入审核意见，如需退回请明确指出修改方向..."></textarea>
+          </div>
+          <div class="space-y-2">
+            <button onclick="approveReview()" class="w-full text-xs py-2 bg-success text-white rounded hover:opacity-90">✓ 通过 · 提交信评委</button>
+            <button onclick="passWithComment()" class="w-full text-xs py-2 bg-brand-600 text-white rounded hover:bg-brand-700">通过 + 建议</button>
+            <button onclick="returnReview()" class="w-full text-xs py-2 border border-warning text-warning rounded hover:bg-warning hover:text-white">↻ 退回项目组修改</button>
+          </div>
+          <div class="pt-2 border-t border-border text-[11px] text-muted leading-relaxed">
+            <strong>提示：</strong>三审签字采用 U 盾或证书签名（《信评委制度》要求）。
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function approveReview() {
+  confirmDialog({
+    title: '三审通过 · 提交信评委？',
+    content: '<p class="text-sm">三审签字将通过 U 盾确认，并自动生成信评委议程包，进入投票流程。</p>',
+    okText: '签字并提交', cancelText: '取消'
+  }).then(ok => {
+    if (ok) {
+      toast('三审通过 · 议程包已生成', 'success');
+      setTimeout(() => location.href = 'committee-agenda.html', 800);
+    }
+  });
+}
+function passWithComment() { toast('已记录"通过+建议"，议程包将附三审意见', 'success'); }
+function returnReview() {
+  confirmDialog({
+    title: '退回项目组？',
+    content: '<p class="text-sm">退回后项目组需根据您的意见修改并重新提交一审、二审。</p>',
+    okText: '退回', cancelText: '取消', danger:true
+  }).then(ok => { if (ok) toast('已退回项目组', 'warning'); });
+}
+
+function askAIReview() {
+  const tr = MockData.threeReview;
+  const ctx = '【当前三级审核状态】\n' +
+              tr.map(s => '· ' + s.stage + '（' + s.reviewer + '）：' + s.verdict + ' · ' + s.remarks).join('\n') + '\n' +
+              '【三审待签】评级总监 周建华 待审';
+  AIAgent.setScene('three-review-diff');
+  AIAgent.send('请基于上述三级审核现状：① 列出各级结论的差异点（等级 / 展望 / 关键论据）② 差异原因分类（方法运用 / 数据更新 / 合规判断 / 主观分歧）③ 给出 3 条三审审议建议（针对争议焦点）④ 引用《信用评审委员会制度》对应条款。', ctx);
+}
+
+mountLayout('three-review', renderMain);
+</script>
+</body>
+</html>

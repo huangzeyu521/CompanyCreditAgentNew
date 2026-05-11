@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>公共信用数据目录 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 公共信用综合评价数据目录
+ * 来源：GB/T 45255-2025 附件《公共信用综合评价数据目录》
+ *      + GB/T 45255-2025《公共信用综合评价规范》八大维度
+ *      + 全国公共信用基础目录（2025 年版）
+ * ==================================================================== */
+function renderMain() {
+  const cat = MockData.publicCreditCatalog;
+  const dims = MockData.eightDimensions;
+  // 按 cat（大类）分组
+  const grouped = {};
+  cat.forEach(c => {
+    grouped[c.cat] = grouped[c.cat] || [];
+    grouped[c.cat].push(c);
+  });
+  return `
+    <div class="bg-brand-50 border-l-4 border-brand-600 rounded-md px-4 py-3 mb-4 text-xs leading-relaxed">
+      <div class="flex items-start gap-2">
+        <span class="text-brand-600 font-bold">📚 数据来源</span>
+        <div class="flex-1 text-ink/85">
+          本页面 100% 对齐<strong>GB/T 45255-2025附件《公共信用综合评价数据目录》</strong> +
+          <strong>GB/T 45255-2025《公共信用综合评价规范》</strong>编制说明 +
+          <strong>全国公共信用基础目录（2025 年版，发改财金规〔2025〕297 号）</strong>。
+        </div>
+      </div>
+    </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            公共信用综合评价数据目录
+            <span class="text-xs text-muted font-normal ml-2">GB/T 45255-2025 附件 · GB/T 45255-2025</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            评级师查询<strong>公共信用八大维度的具体字段定义</strong>。所有字段均来自合法采集渠道（政府公开信息 / 法院判决裁定 / 信息主体 / 行业协会），
+            评级业务依据《信用评级业务程序指引》第七条采集，落地GB/T 45255-2025文第七条要求。
+          </p>
+        </div>
+        <button onclick="askAICatalog()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手 · 字段解读</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">大类</div><div class="num text-2xl font-bold text-brand-600 mt-1">6</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">子类</div><div class="num text-2xl font-bold text-brand-700 mt-1">${cat.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">字段总数</div><div class="num text-2xl font-bold text-success mt-1">${cat.reduce((s,x)=>s+x.fields.length,0)}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">八大维度</div><div class="num text-2xl font-bold text-brand-600 mt-1">${dims.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">权重合计</div><div class="num text-2xl font-bold text-success mt-1">${(dims.reduce((s,d)=>s+d.weight,0)*100).toFixed(0)}%</div></div>
+      </div>
+    </section>
+
+    <!-- GB/T 45255-2025 八大维度（含权重）-->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          GB/T 45255-2025 八大评价维度（含远东配置权重）
+        </h3>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2.5 text-center">代码</th>
+          <th class="py-2.5">维度名称</th>
+          <th class="py-2.5">含义</th>
+          <th class="py-2.5">关键指标</th>
+          <th class="py-2.5">数据来源</th>
+          <th class="py-2.5 text-right pr-4">权重</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          ${dims.map(d => `
+            <tr class="hover:bg-bg">
+              <td class="px-4 py-2.5 text-center"><span class="num text-xs font-semibold text-brand-700">${d.code}</span></td>
+              <td class="text-sm font-medium">${d.name}</td>
+              <td class="text-xs text-muted leading-snug">${d.desc}</td>
+              <td class="text-xs leading-snug">${d.metrics}</td>
+              <td class="text-xs text-muted leading-snug">${d.dataSource}</td>
+              <td class="text-right pr-4"><span class="num font-semibold text-brand-600">${(d.weight*100).toFixed(0)}%</span></td>
+            </tr>
+          `).join('')}
+          <tr class="bg-bg/40">
+            <td colspan="5" class="px-4 py-2.5 text-right text-xs font-semibold">合计</td>
+            <td class="text-right pr-4 num font-bold text-brand-600">${(dims.reduce((s,d)=>s+d.weight,0)*100).toFixed(0)}%</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="px-5 py-3 border-t border-border bg-bg/40 text-[11px] text-muted leading-relaxed">
+        <strong>权重审议留痕：</strong>本权重表为远东资信评级标准委员会 2024-09-15 审议通过的工商企业适用版本；
+        其他行业可基于本基础权重叠加行业属性指标（GB/T 45255-2025 行业应用条款）；
+        <strong>权重每年至少审查一次</strong>（《评级方法、模型与程序的生效改进定期审查制度》）。
+      </div>
+    </section>
+
+    <!-- 6 大类信息字段目录（来自GB/T 45255-2025附件）-->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          6 大类共享字段目录（GB/T 45255-2025 附件）
+        </h3>
+      </div>
+      <div class="divide-y divide-border">
+        ${Object.entries(grouped).map(([catName, items]) => `
+          <div class="p-5">
+            <div class="text-sm font-semibold text-brand-700 mb-3">${catName}</div>
+            <div class="space-y-3">
+              ${items.map(it => `
+                <div class="border border-border rounded p-3 bg-bg/40">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="text-xs font-medium">${it.sub}</div>
+                    <span class="text-[10px] text-muted">共 ${it.fields.length} 个字段</span>
+                  </div>
+                  <div class="flex flex-wrap gap-1 mt-2">
+                    ${it.fields.map(f => `<span class="text-[10px] px-1.5 py-0.5 bg-white border border-border rounded text-ink/80">${f}</span>`).join('')}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="px-5 py-3 border-t border-border bg-bg/40 text-[11px] text-muted leading-relaxed">
+        <strong>合规说明：</strong>所有字段以"<strong>物理归集</strong>"方式共享至全国信用信息共享平台（GB/T 45255-2025 第六条）；
+        国家发改委及时将公共信用综合评价结果推送至各地方各有关部门（含远东等第三方机构）；
+        评级业务采集字段须严格依《信用评级业务程序指引》第七条 4 类合法渠道。
+      </div>
+    </section>
+
+    <!-- 与远东评级业务的对接 -->
+    <section class="bg-white rounded-lg shadow-card p-5">
+      <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        与远东评级业务的对接（评级师视角）
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        ${[
+          ['立项 ① · 公共信用快查', 'KYC 阶段调用八大维度画像 → 红黄绿建议 → 决定承接'],
+          ['尽调 ② · 资料采集',     '6 大类字段作为外部核验源 → 受评对象提交资料交叉印证'],
+          ['建模 ③ · 融合引擎',     '八大维度按权重接入 BACP / AM 评分体系'],
+          ['审核 ④ · 红线校验',     '失信惩戒维度命中"严重失信" → D 级红线锁定'],
+          ['报告 ④ · 附录披露',     '评级报告附录列出公共信用评价结果及对评级的影响'],
+          ['跟踪 ⑤ · 动态监测',     '21 类事项 + 公共信用 ABCD 变化 + 信用修复联动']
+        ].map(([t,d]) => `
+          <div class="border border-border rounded p-3 hover:border-brand-300 hover:bg-brand-50/30">
+            <div class="font-medium text-brand-700">${t}</div>
+            <div class="text-muted leading-snug mt-1">${d}</div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function askAICatalog() {
+  const dims = MockData.eightDimensions;
+  const cat = MockData.publicCreditCatalog;
+  const ctx = '【GB/T 45255-2025 八大维度】\n' +
+              dims.map(d => '· ' + d.name + '（权重' + (d.weight*100).toFixed(0) + '%）· ' + d.metrics).join('\n') + '\n' +
+              '【6 大类共享字段】共 ' + cat.length + ' 个子类、' + cat.reduce((s,x)=>s+x.fields.length,0) + ' 个字段';
+  AIAgent.setScene('pub-credit-attribute');
+  AIAgent.send('请基于以上八大维度配置：① 解读每个维度的核心评分逻辑 ② 与远东 BACP/AM 的指标级映射（哪个维度→哪个 BACP 一级要素 / 哪个 AM 调整因素）③ 各维度的权重合理性评估 ④ 给评级师的"如何在评级建模中正确应用八大维度"的 5 条建议。', ctx);
+}
+
+mountLayout('public-credit-catalog', renderMain);
+</script>
+</body>
+</html>

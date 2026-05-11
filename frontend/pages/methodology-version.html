@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>评级方法版本与生效管理 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 评级方法版本与生效管理（FR-C-009 + 国标对照） ============== */
+function renderMain() {
+  const versions = MockData.methodVersions;
+  const standards = MockData.methodStandards;
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            评级方法版本与生效管理
+            <span class="text-xs text-muted font-normal">FR-C-009 · 评级标准委员会审议</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            按《评级方法、模型与程序的生效、改进和定期审查制度》：新方法学经评级标准委员会审议生效，旧版本同时废止；
+            每个评级项目绑定具体方法学版本号，可追溯。同步管理 GB/T 45255-2025 等 5 项国标对照。
+          </p>
+        </div>
+        <button onclick="askAIMethod()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">在用方法学</div><div class="num text-2xl font-bold text-brand-600 mt-1">${versions.length}+</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">国标对照</div><div class="num text-2xl font-bold text-brand-700 mt-1">${standards.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本年度新版</div><div class="num text-2xl font-bold text-success mt-1">3</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已废止版本</div><div class="num text-2xl font-bold text-muted mt-1">8</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">定期审查</div><div class="num text-2xl font-bold text-success mt-1">每年</div></div>
+      </div>
+    </section>
+
+    <!-- 评级方法版本列表 -->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          方法学版本（生效中）
+        </h3>
+        <span class="text-xs text-muted">所有方法学经评级标准委员会 2/3 同意生效</span>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2">编号</th>
+          <th class="py-2">方法学名称</th>
+          <th class="py-2">行业</th>
+          <th class="py-2">当前版本</th>
+          <th class="py-2">生效日期</th>
+          <th class="py-2">前一版本（已废止）</th>
+          <th class="py-2">委员会审议</th>
+          <th class="py-2">状态</th>
+          <th class="py-2 pr-4 text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          ${versions.map(v => `
+            <tr class="hover:bg-bg">
+              <td class="px-4 py-2.5 num text-[11px]">${v.id}</td>
+              <td class="text-sm font-medium">${v.name}</td>
+              <td class="text-xs text-muted">${v.industry}</td>
+              <td class="text-xs num font-semibold text-brand-700">${v.ver}</td>
+              <td class="text-xs num text-muted">${v.effective}</td>
+              <td class="text-xs text-muted">${v.superseded}</td>
+              <td class="text-xs text-muted">${v.committee}</td>
+              <td><span class="text-xs px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/30">${v.status}</span></td>
+              <td class="text-right pr-4"><button onclick="viewMV('${v.id}')" class="text-xs text-brand-600 hover:underline">详情 →</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 国标对照 -->
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          国标对照（CR-011 ~ CR-013）
+        </h3>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2">国标编号</th>
+          <th class="py-2">名称</th>
+          <th class="py-2">发布日期</th>
+          <th class="py-2">实施日期</th>
+          <th class="py-2 pr-4">在 CCASCEA 中的应用</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          ${standards.map(s => `
+            <tr class="hover:bg-bg">
+              <td class="px-4 py-2.5 num text-xs font-medium text-brand-700">${s.id}</td>
+              <td class="text-sm">${s.name}</td>
+              <td class="text-xs num text-muted">${s.issueAt}</td>
+              <td class="text-xs num text-muted">${s.effective}</td>
+              <td class="text-xs leading-snug pr-4">${s.usage}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div class="px-5 py-3 border-t border-border bg-bg/40 text-[11px] text-muted leading-relaxed">
+        <strong>合规说明：</strong>所有国标已映射到系统的合规规则引擎与评级方法学；评级项目按生效日期自动选用对应国标版本；
+        旧版本国标用于历史项目复评追溯。
+      </div>
+    </section>
+
+    <!-- 版本管理流程 -->
+    <section class="bg-white rounded-lg shadow-card mt-5 p-5">
+      <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        方法学版本生效流程
+      </h3>
+      <div class="grid grid-cols-6 gap-2 items-center text-center">
+        ${[
+          { n:'①', t:'起草', d:'方法学起草小组' },
+          { n:'②', t:'内部评审', d:'同行评审 + 部门审议' },
+          { n:'③', t:'征求意见', d:'内外部征求意见 ≥ 1 个月' },
+          { n:'④', t:'委员会审议', d:'评级标准委员会 2/3 同意' },
+          { n:'⑤', t:'公布生效', d:'公司官网公布 + 监管报备' },
+          { n:'⑥', t:'定期审查', d:'每年至少审查一次' }
+        ].map((s, i, arr) => `
+          <div class="flex items-center gap-1">
+            <div class="border border-border rounded-lg p-3 flex-1 hover:border-brand-300 hover:bg-brand-50/30">
+              <div class="num text-xl font-bold text-brand-600">${s.n}</div>
+              <div class="text-xs font-medium mt-1">${s.t}</div>
+              <div class="text-[10px] text-muted leading-snug mt-1">${s.d}</div>
+            </div>
+            ${i < arr.length - 1 ? '<span class="text-muted">→</span>' : ''}
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function viewMV(id) {
+  const v = MockData.methodVersions.find(x => x.id === id);
+  if (!v) return;
+  openModal({
+    title: v.name + ' · ' + v.ver,
+    width: 'max-w-xl',
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div><span class="text-muted">行业：</span>${v.industry}</div>
+          <div><span class="text-muted">页数：</span><span class="num">${v.pages}</span></div>
+          <div><span class="text-muted">生效日期：</span><span class="num">${v.effective}</span></div>
+          <div><span class="text-muted">前一版本：</span>${v.superseded}</div>
+        </div>
+        <div class="border-t border-border pt-3">
+          <div class="text-xs font-medium mb-1">委员会审议记录</div>
+          <div class="text-xs text-muted">${v.committee}</div>
+        </div>
+        <div class="border-t border-border pt-3 text-[11px] text-muted leading-relaxed">
+          <strong>合规留痕：</strong>本方法学版本每次修改、生效、废止均经评级标准委员会审议 + 写入审计链；
+          引用本方法学的评级项目自动绑定版本号，确保溯源可审计。
+        </div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded">关闭</button>
+      <a href="methodology-rag.html" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">在 RAG 中查询</a>
+    `
+  });
+}
+
+function askAIMethod() {
+  const ms = MockData.methodVersions;
+  const ctx = '【在用方法学】' + ms.length + ' 份\n【已验证公开样例】' + ms.filter(m=>m.isVerified).length + ' 份';
+  AIAgent.setScene('kb-rag');
+  AIAgent.send('请基于上述方法学清单：① 各版本与远东评级业务的匹配度评估 ② 即将到期需复审的方法学清单 ③ 行业适用性建议（钢铁/银行/保险等用哪个版本）④ 评级标准委员会下一次审议议程建议 ⑤ 引用《评级方法、模型与程序的生效、改进和定期审查制度》。', ctx);
+}
+
+mountLayout('methodology-version', renderMain);
+</script>
+</body>
+</html>

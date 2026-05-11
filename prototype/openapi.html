@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>开放平台 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/mock-data.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/layout.js"></script>
+<script>
+function renderMain() {
+  const apis = MockData.apis;
+  // 按 group 分组
+  const groups = {};
+  apis.forEach(a => { if (!groups[a.group]) groups[a.group] = []; groups[a.group].push(a); });
+
+  return `
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <h1 class="text-lg font-semibold flex items-center gap-2 mb-4">
+        <span class="w-1 h-5 bg-brand-600 rounded"></span>
+        开放平台 · OpenAPI 与计费
+      </h1>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div class="border border-border rounded p-3"><div class="text-xs text-muted">已发布 API</div><div class="num text-xl font-semibold text-brand-600 mt-1">${apis.length}</div></div>
+        <div class="border border-border rounded p-3"><div class="text-xs text-muted">本月调用量</div><div class="num text-xl font-semibold text-brand-600 mt-1">${fmtNum(apis.reduce((a,b)=>a+b.calls,0))}</div></div>
+        <div class="border border-success/30 rounded p-3 bg-success/5"><div class="text-xs text-success">平均成功率</div><div class="num text-xl font-semibold text-success mt-1">99.7%</div></div>
+        <div class="border border-border rounded p-3"><div class="text-xs text-muted">本月账单</div><div class="num text-xl font-semibold text-brand-600 mt-1">¥ 86,420</div></div>
+      </div>
+
+      <!-- 调用量趋势图 + API TOP -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+        <div class="lg:col-span-2 border border-border rounded p-4">
+          <div class="text-sm font-semibold mb-2">最近 14 天 API 调用量趋势</div>
+          <div id="apiTrendChart" class="h-48"></div>
+        </div>
+        <div class="border border-border rounded p-4">
+          <div class="text-sm font-semibold mb-2">API 调用 TOP 5</div>
+          <div id="apiTopChart" class="h-48"></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- API 列表 -->
+        <div class="lg:col-span-2">
+          <h2 class="text-sm font-semibold mb-3 flex items-center gap-2"><span class="w-1 h-4 bg-brand-600 rounded"></span>API 文档</h2>
+          ${Object.keys(groups).map(g => `
+            <div class="mb-5">
+              <div class="text-xs text-muted mb-2 font-semibold">${g}</div>
+              <div class="space-y-2">
+                ${groups[g].map(a => `
+                  <details class="border border-border rounded">
+                    <summary class="cursor-pointer p-3 flex items-center gap-3 hover:bg-bg">
+                      <span class="text-xs px-2 py-0.5 rounded ${a.method === 'GET' ? 'bg-success/10 text-success' : 'bg-brand-100 text-brand-700'} font-medium num">${a.method}</span>
+                      <span class="num text-xs flex-1">${a.path}</span>
+                      <span class="text-xs text-muted">${a.desc}</span>
+                      <span class="text-xs num text-brand-600">${fmtNum(a.calls)}</span>
+                    </summary>
+                    <div class="border-t border-border p-3 bg-bg text-xs">
+                      <div class="mb-2 text-muted">请求示例：</div>
+                      <pre class="bg-white p-2 rounded border border-border overflow-auto num text-[11px]">curl -X ${a.method} \\
+  https://api.ccascea.example.com${a.path} \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json"</pre>
+                      <div class="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+                        <div>调用量：<span class="num text-brand-600">${fmtNum(a.calls)}</span></div>
+                        <div>成功率：<span class="num text-success">${a.success}%</span></div>
+                        <div>平均时延：<span class="num">${Math.floor(Math.random()*500)+200}ms</span></div>
+                      </div>
+                    </div>
+                  </details>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- 侧边 -->
+        <div class="space-y-4">
+          <!-- Token -->
+          <div class="border border-border rounded p-4">
+            <h3 class="text-sm font-semibold mb-3">Token 管理</h3>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2"><span class="text-xs num text-muted flex-1 truncate">prod_***...4f8c</span><span class="text-xs text-success">生产</span></div>
+              <div class="flex items-center gap-2"><span class="text-xs num text-muted flex-1 truncate">test_***...9a3e</span><span class="text-xs text-warning">测试</span></div>
+            </div>
+            <button onclick="toast('已生成新 Token','success')" class="w-full mt-3 text-xs px-3 py-1.5 bg-brand-600 text-white rounded hover:bg-brand-700">+ 生成新 Token</button>
+          </div>
+
+          <!-- 限流 -->
+          <div class="border border-border rounded p-4">
+            <h3 class="text-sm font-semibold mb-3">限流策略</h3>
+            <div class="space-y-2 text-xs">
+              <div class="flex justify-between"><span class="text-muted">QPS 上限</span><span class="num font-medium">500</span></div>
+              <div class="flex justify-between"><span class="text-muted">单日上限</span><span class="num font-medium">100,000</span></div>
+              <div class="flex justify-between"><span class="text-muted">突发倍率</span><span class="num font-medium">×1.5</span></div>
+            </div>
+          </div>
+
+          <!-- 计费 -->
+          <div class="grad-deep-blue rounded-lg p-4 text-white">
+            <div class="text-xs opacity-80">本月计费</div>
+            <div class="num text-2xl font-bold mt-1">¥ 86,420</div>
+            <div class="text-xs opacity-80 mt-2">预估月底：¥ 124,000</div>
+            <div class="mt-3 h-1 bg-white/15 rounded overflow-hidden">
+              <div class="h-full bg-white" style="width:69%"></div>
+            </div>
+            <div class="text-[10px] opacity-80 mt-1">本月预算 ¥ 150,000 · 已用 69%</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+mountLayout('openapi', renderMain);
+
+setTimeout(() => {
+  const t = document.getElementById('apiTrendChart');
+  if (t) {
+    const c = echarts.init(t);
+    // 14 天调用量趋势（成功+失败）
+    const days = Array.from({length:14}, (_, i) => {
+      const d = new Date(2026, 3, 15 + i);
+      return `${d.getMonth()+1}/${d.getDate()}`;
+    });
+    const success = [3200,4100,3800,4500,5200,2800,2400,3500,4200,4800,5800,6200,6800,5400];
+    const fail    = [12,15,8,22,18,10,5,14,11,16,25,18,22,15];
+    c.setOption({
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['成功','失败'], textStyle:{fontSize:11}, top: 0 },
+      grid: { left: 50, right: 50, top: 30, bottom: 30 },
+      xAxis: { type: 'category', data: days, axisLabel: { fontSize: 10 } },
+      yAxis: [
+        { type: 'value', name: '成功', position: 'left', axisLine: {lineStyle:{color:'#16A34A'}} },
+        { type: 'value', name: '失败', position: 'right', axisLine: {lineStyle:{color:'#DC2626'}} }
+      ],
+      series: [
+        { name:'成功', type:'line', smooth:true, data: success, itemStyle:{color:'#16A34A'}, areaStyle:{color:'rgba(22,163,74,0.10)'} },
+        { name:'失败', type:'line', smooth:true, yAxisIndex: 1, data: fail, itemStyle:{color:'#DC2626'}, lineStyle:{type:'dashed'} }
+      ]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+  const top = document.getElementById('apiTopChart');
+  if (top) {
+    const c = echarts.init(top);
+    const sorted = [...MockData.apis].sort((a,b) => b.calls - a.calls).slice(0, 5);
+    c.setOption({
+      tooltip: { trigger: 'axis' },
+      grid: { left: 100, right: 30, top: 10, bottom: 25 },
+      xAxis: { type: 'value', axisLine: { show: false }, splitLine: { lineStyle: { color: '#F1F5F9' } } },
+      yAxis: { type: 'category', data: sorted.map(a => a.path.split('/').pop()).reverse(),
+        axisLabel: { fontSize: 10 }, axisLine: { lineStyle: { color: '#CBD5E1' } } },
+      series: [{
+        type: 'bar', data: sorted.map(a => a.calls).reverse(),
+        itemStyle: { color: '#1F497D', borderRadius: [0, 3, 3, 0] }, barWidth: '60%',
+        label: { show: true, position: 'right', formatter: (p) => p.value.toLocaleString(), fontSize: 10 }
+      }]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+}, 100);
+</script>
+</body>
+</html>

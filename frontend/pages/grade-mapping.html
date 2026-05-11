@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>等级映射 / 情景压力测试 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 等级映射 / 情景压力（FR-C-006 / C-007）============== */
+function renderMain() {
+  const g = MockData.gradeDerivation;
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            等级映射 / 情景与压力测试
+            <span class="text-xs text-muted font-normal">FR-C-006 · FR-C-007</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            BACP + AM = ASCP；ASCP 叠加外部支持得到主体信用等级（AAA～C 三等九级）。
+            支持基本情景与压力情景；流动性覆盖率压力测试。
+          </p>
+        </div>
+        <button onclick="askAIGrade()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+    </section>
+
+    <!-- 等级推导链 -->
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <h3 class="text-sm font-semibold flex items-center gap-2 mb-4">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        等级推导链
+      </h3>
+      <div class="grid grid-cols-7 gap-2 items-center">
+        <div class="border border-border rounded-lg p-3 text-center">
+          <div class="text-[10px] text-muted">BACP 综合分</div>
+          <div class="num text-xl font-bold text-brand-600 mt-1">${g.bacpComposite}</div>
+          <div class="text-[10px] text-muted">满分 8</div>
+        </div>
+        <div class="text-center text-2xl text-muted">→</div>
+        <div class="border border-border rounded-lg p-3 text-center bg-bg">
+          <div class="text-[10px] text-muted">个体信用等级（小写）</div>
+          <div class="num text-xl font-bold text-success mt-1">${g.bacpGrade}</div>
+          <div class="text-[10px] text-muted">不考虑外部支持</div>
+        </div>
+        <div class="text-center text-2xl text-muted">+</div>
+        <div class="border border-border rounded-lg p-3 text-center">
+          <div class="text-[10px] text-muted">AM 调整</div>
+          <div class="num text-xl font-bold ${parseFloat(g.amDelta)>0?'text-success':parseFloat(g.amDelta)<0?'text-danger':'text-muted'} mt-1">${parseFloat(g.amDelta)>0?'+':''}${g.amDelta}</div>
+          <div class="text-[10px] text-muted">9 类调整</div>
+        </div>
+        <div class="text-center text-2xl text-muted">+</div>
+        <div class="border border-border rounded-lg p-3 text-center">
+          <div class="text-[10px] text-muted">外部支持</div>
+          <div class="num text-xl font-bold text-success mt-1">+${g.externalDelta}</div>
+          <div class="text-[10px] text-muted">母 / 政 / 担</div>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center justify-center">
+        <div class="text-2xl text-muted">↓</div>
+      </div>
+      <div class="flex items-center justify-center gap-4 mt-4">
+        <div class="border-2 border-gold rounded-lg p-4 text-center bg-gradient-to-br from-yellow-50 to-amber-100 glow-gold w-72">
+          <div class="text-xs text-gold font-semibold">主体信用等级（最终待审议）</div>
+          <div class="num text-4xl font-bold text-gold mt-2">${g.finalGrade}</div>
+          <div class="text-xs text-muted mt-2">展望：${g.outlook} · ${getGradeSemantic(g.finalGrade.replace(/[+-]$/,''))}</div>
+        </div>
+      </div>
+      <div class="text-[11px] text-muted mt-4 text-center">
+        三等九级：AAA / AA / A / BBB / BB / B / CCC / CC / C；除 AAA 与 CCC（含）以下外，每级可加 +/- 修饰
+      </div>
+    </section>
+
+    <!-- 情景与压力测试 -->
+    <section class="grid grid-cols-2 gap-5">
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          情景分析
+        </h3>
+        <div class="space-y-3">
+          ${[
+            { name:'基本情景', grade:'AA-', desc:'宏观稳定 + 行业平均增速 + 公司基本面持平' },
+            { name:'乐观情景', grade:'AA',  desc:'新能源转型加速 + 政策支持 + ROE 提升 2pp' },
+            { name:'压力情景', grade:'A',   desc:'行业景气下行 + 短期债务展期困难 + ROE 下降 4pp' },
+            { name:'极端压力', grade:'BBB+',desc:'宏观经济冲击 + 主要客户违约 + 流动性断裂' }
+          ].map(s => `
+            <div class="border border-border rounded p-3 flex items-center gap-3 hover:border-brand-300">
+              <div class="w-20 text-center">${gradeBadge(s.grade, { large:false })}</div>
+              <div class="flex-1">
+                <div class="text-xs font-medium">${s.name}</div>
+                <div class="text-[11px] text-muted leading-snug mt-0.5">${s.desc}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          流动性压力测试（LCR）
+        </h3>
+        <div id="lcr-chart" class="h-64"></div>
+        <div class="text-[11px] text-muted mt-2 leading-relaxed">
+          压力假设：未来 30 天净现金流出 + 银行授信使用率提升 20pp；高质量流动性资产折价 5%。
+          LCR ≥ 100% 视为合规。
+        </div>
+      </div>
+    </section>
+
+    <section class="flex items-center justify-between bg-white rounded-lg shadow-card p-4 mt-5">
+      <a href="fusion-engine.html" class="text-xs px-3 py-1.5 border border-border rounded hover:bg-bg">← 返回融合</a>
+      <a href="peer-benchmark.html" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded hover:bg-brand-700">下一步：同业对标 →</a>
+    </section>
+  `;
+}
+
+function initChart() {
+  const el = document.getElementById('lcr-chart');
+  if (!el) return;
+  const c = echarts.init(el);
+  c.setOption({
+    tooltip: { trigger:'axis' },
+    legend: { textStyle:{ color:'#64748B', fontSize:11 }, top:0 },
+    grid: { left: 50, right: 20, top: 30, bottom: 30 },
+    xAxis: { type:'category', data:['Day 1','Day 5','Day 10','Day 15','Day 20','Day 25','Day 30'], axisLabel:{ color:'#64748B' } },
+    yAxis: { type:'value', name:'LCR %', min:80, axisLabel:{ formatter:'{value}%', color:'#64748B' } },
+    series: [
+      { name:'基本情景', type:'line', smooth:true, data:[148,142,138,135,132,128,125], itemStyle:{ color:'#16A34A' } },
+      { name:'压力情景', type:'line', smooth:true, data:[148,138,128,118,108,102,98], itemStyle:{ color:'#F59E0B' } },
+      { name:'极端压力', type:'line', smooth:true, data:[148,132,118,108,98,90,84], itemStyle:{ color:'#DC2626' } }
+    ]
+  });
+  window.addEventListener('resize', () => c.resize());
+}
+
+function askAIGrade() {
+  const g = MockData.gradeDerivation;
+  const ctx = '【等级推导】BACP ' + g.bacpComposite + ' → ' + g.bacpGrade + ' + AM ' + (parseFloat(g.amDelta)>0?'+':'') + g.amDelta + ' + 外部 +' + g.externalDelta + ' = 主体等级 ' + g.finalGrade + ' · 展望 ' + g.outlook;
+  AIAgent.setScene('rating-draft');
+  AIAgent.send('请基于以上等级推导：① 4 档情景测试（基本/乐观/压力/极端压力）下的等级波动 ② 评级敏感度分析（哪个变量变动 1 单位影响最大）③ 与历史评级 / 同业的对照 ④ 评级师可调整的边界（最低 / 最高合理等级）⑤ 引用《信用评级方法规则》。', ctx);
+}
+
+mountLayout('grade-mapping', renderMain);
+initChart();
+</script>
+</body>
+</html>

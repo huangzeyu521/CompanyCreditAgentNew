@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>项目工作台 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 项目工作台（项目驱动 · 12 阶段时间线 + 当前阶段工具集） ============== */
+let activeStageId = null;  // 用户在时间线上点击的阶段（默认 = currentStage）
+
+function getProject() {
+  const id = new URLSearchParams(location.search).get('projectId');
+  const list = MockData.projects;
+  let p;
+  if (id) {
+    p = list.find(x => x.id === id);
+    if (!p) {
+      // INVALID projectId — 显式报错，不静默回退（避免 URL 与显示不一致）
+      window.__invalidProjectId = id;
+      return null;
+    }
+  } else {
+    p = list[0];
+  }
+  if (!p) return null;
+  // 兜底：缺 stages / timeline / currentStage 时 lazy build
+  if (!p.stages && typeof MockData.buildStagesForProject === 'function') {
+    p.stages = MockData.buildStagesForProject(p);
+  }
+  if (!p.timeline && typeof MockData.buildTimelineForProject === 'function') {
+    p.timeline = MockData.buildTimelineForProject(p);
+  }
+  if (!p.currentStage && Array.isArray(p.stages) && p.stages.length) {
+    const cur = p.stages.find(s => s.status === 'in-progress');
+    p.currentStage = cur ? cur.id : (p.stages.find(s => s.status === 'pending') || p.stages[0]).id;
+  }
+  return p;
+}
+
+function getSubject(p) {
+  return MockData.subjects.find(s => s.name === p.subject) || null;
+}
+
+function renderMain() {
+  const p = getProject();
+  if (!p) {
+    const invalidId = window.__invalidProjectId;
+    return `
+      <div class="bg-white rounded-lg shadow-card p-12 text-center">
+        <div class="text-5xl mb-3">${invalidId ? '🚫' : '📭'}</div>
+        <div class="text-base font-medium text-ink mb-2">${invalidId ? '项目不存在' : '未指定项目'}</div>
+        ${invalidId ? `<div class="text-xs text-muted mb-4">URL 中指定的项目编号 <span class="num">${invalidId}</span> 在系统中找不到。可能已被删除或编号有误。</div>` : ''}
+        <div class="text-sm text-muted">请从 <a href="project-intake.html" class="text-brand-600 hover:underline font-medium">"我的项目"</a> 列表选择一个项目进入。</div>
+      </div>
+    `;
+  }
+  const sub = getSubject(p);
+  const labels = (sub && sub.creditLabels) || [];
+  const lead = (Array.isArray(p.team) && p.team[0]) || {};
+  const leadStr = typeof lead === 'object' ? `${lead.name}（${lead.role}，${lead.years}y）` : lead;
+  const stages = p.stages || [];
+  if (!activeStageId) activeStageId = p.currentStage;
+  const activeStage = stages.find(s => s.id === activeStageId) || stages[0];
+  const tools = (MockData.stageToolMap || {})[activeStageId] || [];
+
+  return `
+    <!-- 顶部：项目切换器 + 数据来源声明 -->
+    <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
+      <div class="bg-bg/60 border border-border rounded-md px-4 py-2 text-[11px] text-muted leading-relaxed flex items-start gap-2 flex-1 min-w-0">
+        <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span><strong class="text-ink">项目工作台</strong>：所有评级动作以"项目"为中心。本页严格按《信用评级业务程序指引》14 章 52 条的 12 个核心阶段串联。点击任一阶段可查看 / 进入该阶段的工具集。</span>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <label class="text-[11px] text-muted">切换项目</label>
+        <select onchange="if(this.value){location.href='project-workbench.html?projectId='+this.value;}"
+                class="text-xs px-2 py-1.5 border border-border rounded-md bg-white focus:outline-none focus:border-brand-600 max-w-xs">
+          ${MockData.projects.map(x => `<option value="${x.id}" ${x.id === p.id ? 'selected' : ''}>${x.subject} · ${x.id}</option>`).join('')}
+        </select>
+        <a href="project-intake.html" class="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-bg whitespace-nowrap">← 我的项目</a>
+      </div>
+    </div>
+
+    <!-- 项目元信息卡 -->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="bg-gradient-to-r from-brand-600 to-brand-700 text-white px-6 py-4 rounded-t-lg flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <div class="text-xs text-white/70">项目编号 · ${p.id}</div>
+          <div class="text-xl font-bold mt-1 flex items-center gap-2 flex-wrap">
+            <span>${p.subject}</span>
+            ${labels.map(l => `<span class="text-[11px] bg-white/20 backdrop-blur px-2 py-0.5 rounded-full border border-white/30">${l}</span>`).join('')}
+          </div>
+          <div class="text-xs text-white/80 mt-2 flex flex-wrap gap-x-4">
+            <span>USCC · <span class="num">${(sub && sub.uscc) || '—'}</span></span>
+            <span>行业 · ${p.industry}</span>
+            <span>评级类型 · ${p.ratingType || (Array.isArray(p.ratingTypes) ? p.ratingTypes.join('+') : '—')}</span>
+            <span>债项 · ${p.bondType || '—'}</span>
+            <span>立项 · ${p.createdAt}</span>
+            <span>计划交付 · ${p.plannedEnd || '—'}</span>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs text-white/70">当前进度</div>
+          <div class="text-2xl font-bold mt-1 num">${Math.round((stages.filter(s=>s.status==='done').length / stages.length) * 100)}%</div>
+          <div class="text-[10px] text-white/70 mt-1">${stages.filter(s=>s.status==='done').length} / ${stages.length} 阶段已完成</div>
+        </div>
+      </div>
+
+      <!-- 12 阶段时间线（横向） -->
+      <div class="px-6 py-5">
+        <div class="text-xs font-semibold text-muted mb-3 flex items-center gap-2">
+          <span class="w-1 h-3 bg-brand-600 rounded"></span>
+          12 阶段工作流（按《程序指引》14 章 52 条）
+        </div>
+        <div class="overflow-x-auto pb-2">
+          <div class="flex items-start gap-1 min-w-max">
+            ${stages.map((s, i) => {
+              const isDone = s.status === 'done';
+              const isActive = s.id === p.currentStage;
+              const isClickedActive = s.id === activeStageId;
+              const dotCls = isDone ? 'bg-success text-white border-success'
+                          : isActive ? 'bg-brand-600 text-white border-brand-600 ring-4 ring-brand-100 animate-pulse'
+                          : 'bg-white text-muted border-border';
+              const labelCls = isClickedActive ? 'text-brand-700 font-bold' : (isDone ? 'text-success font-medium' : (isActive ? 'text-brand-700 font-medium' : 'text-muted'));
+              const lineCls = isDone ? 'bg-success' : 'bg-border';
+              return `
+                <div class="flex items-center" style="flex:0 0 auto">
+                  <button onclick="selectStage('${s.id}')" class="flex flex-col items-center text-center px-2 hover:bg-bg/50 rounded transition" style="min-width:80px">
+                    <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center font-semibold text-xs ${dotCls} ${isClickedActive ? 'shadow-lg' : ''}">
+                      ${isDone ? '✓' : (i+1)}
+                    </div>
+                    <div class="mt-2 text-[11px] ${labelCls}">${s.name}</div>
+                    <div class="text-[9px] text-muted mt-0.5">${isDone ? s.completedAt : (isActive && s.progress !== undefined ? s.progress + '%' : '—')}</div>
+                  </button>
+                  ${i < stages.length - 1 ? `<div class="h-0.5 ${lineCls}" style="width:24px"></div>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 当前阶段卡 -->
+    <section class="bg-white rounded-lg shadow-card mb-5 overflow-hidden">
+      <div class="px-5 py-4 border-b border-border bg-bg/40 flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">${activeStage.icon || '📌'}</span>
+          <div>
+            <div class="text-base font-semibold flex items-center gap-2">
+              ${activeStage.name}
+              ${activeStage.status === 'done' ? '<span class="text-xs px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/30">✓ 已完成</span>' :
+                activeStage.status === 'in-progress' ? '<span class="text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 border border-brand-200">● 进行中</span>' :
+                '<span class="text-xs px-2 py-0.5 rounded-full bg-bg text-muted border border-border">○ 待启动</span>'}
+              ${activeStage.id === p.currentStage ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning">当前焦点</span>' : ''}
+            </div>
+            <div class="text-xs text-muted mt-1">${activeStage.desc || ''} · <span class="text-brand-600">${activeStage.guide || ''}</span></div>
+          </div>
+        </div>
+        <div class="text-right">
+          ${activeStage.owner ? `<div class="text-[11px] text-muted">负责人：<strong class="text-ink">${activeStage.owner}</strong></div>` : ''}
+          ${activeStage.startedAt ? `<div class="text-[10px] text-muted num">开始：${activeStage.startedAt}</div>` : ''}
+          ${activeStage.completedAt ? `<div class="text-[10px] text-success num">完成：${activeStage.completedAt}</div>` : ''}
+        </div>
+      </div>
+
+      <!-- 阶段工具集 -->
+      <div class="px-5 py-4">
+        <div class="text-xs font-semibold text-muted mb-3 flex items-center gap-2">
+          <span class="w-1 h-3 bg-brand-600 rounded"></span>
+          阶段工具集（${tools.length} 项 · 所有数据自动绑定到本项目）
+        </div>
+        ${tools.length ? `
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            ${tools.map(t => `
+              <a href="${t.route}.html?projectId=${p.id}"
+                 class="border border-border rounded-lg p-4 hover:border-brand-300 hover:bg-brand-50/30 transition-all hover:-translate-y-0.5 hover:shadow group">
+                <div class="text-2xl mb-2">${t.icon}</div>
+                <div class="text-sm font-medium text-ink group-hover:text-brand-700">${t.name}</div>
+                <div class="text-[10px] text-muted mt-1 group-hover:text-brand-600">进入 →</div>
+              </a>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- 阶段内联视图（项目级） -->
+        ${renderInlineView(activeStageId, p) || (tools.length === 0 ? `
+          <div class="text-center py-8 text-sm text-muted">该阶段暂无独立工具，关注 ${activeStage.name} 完成情况即可进入下一阶段。</div>
+        ` : '')}
+
+        <!-- 跨项目视图引导 -->
+        <div class="mt-5 pt-3 border-t border-dashed border-border/60 text-[11px] text-muted flex items-center gap-1.5">
+          <span class="text-yellow-500">💡</span>
+          <span>需要看<strong class="text-ink/70">全公司</strong>的委托池 / 议程汇总 / 21 类重大事项 / 监管报送 / 审计日志，请到 <strong class="text-brand-700">左侧"跨项目视图"</strong> 菜单。</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 项目组 + 关键事件 (双列) -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+      <!-- 项目组 -->
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          项目组（${(p.team || []).length} 人）
+        </h3>
+        <div class="space-y-2">
+          ${(p.team || []).map(m => {
+            const name = typeof m === 'object' ? m.name : m;
+            const role = typeof m === 'object' ? m.role : '';
+            const years = typeof m === 'object' ? m.years : '';
+            return `
+              <div class="flex items-center gap-3 p-2 rounded hover:bg-bg/40">
+                <div class="w-8 h-8 rounded-full grad-deep-blue text-white flex items-center justify-center text-xs font-bold flex-shrink-0">${name ? name[0] : '?'}</div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium truncate">${name}</div>
+                  <div class="text-[10px] text-muted">${role || '—'} ${years ? '· ' + years + 'y' : ''}</div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- 关键事件时间轴 -->
+      <div class="bg-white rounded-lg shadow-card p-5 md:col-span-2">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          关键事件时间轴（最近 ${(p.timeline || []).length} 条）
+        </h3>
+        <div class="space-y-3">
+          ${(p.timeline || []).map((e, i) => `
+            <div class="flex items-start gap-3 pb-3 ${i < p.timeline.length - 1 ? 'border-b border-border/50' : ''}">
+              <div class="w-2 h-2 rounded-full bg-brand-500 mt-1.5 flex-shrink-0"></div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <div class="text-sm font-medium">${e.event}</div>
+                  <div class="text-[10px] num text-muted">${e.date}</div>
+                </div>
+                <div class="text-xs text-muted mt-0.5">${e.actor}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function selectStage(stageId) {
+  activeStageId = stageId;
+  document.getElementById('app').innerHTML = '';
+  mountLayout('project-workbench', renderMain);
+}
+
+/* ====== 阶段内联视图（项目级数据 · 不跳转独立页） ====== */
+function renderInlineView(stageId, p) {
+  const sub = MockData.subjects.find(s => s.name === p.subject);
+  const fmtCurrency = (v) => v ? '¥' + (v / 10000).toFixed(2) + ' 万' : '—';
+
+  if (stageId === 'intake') {
+    // 委托协议状态卡
+    const ct = (MockData.contracts || []).find(c => c.project === p.id);
+    const cf = (MockData.conflictChecks || []).find(c => c.project === p.id);
+    return `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-border/60">
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs font-semibold text-muted mb-2 flex items-center gap-1">📜 委托协议</div>
+          ${ct ? `
+            <div class="text-sm space-y-1">
+              <div><span class="text-muted text-xs">协议编号：</span><span class="num">${ct.id}</span></div>
+              <div><span class="text-muted text-xs">委托方：</span>${ct.client}</div>
+              <div><span class="text-muted text-xs">金额：</span><span class="num">${ct.amount} 万元</span></div>
+              <div><span class="text-muted text-xs">签订：</span><span class="num">${ct.signedAt}</span></div>
+              <div class="pt-1"><span class="text-xs px-2 py-0.5 rounded ${ct.sealed ? 'bg-success/10 text-success border border-success/30' : 'bg-warning/10 text-warning border border-warning/30'}">${ct.sealed ? '✓ 已电子签章' : '待签章'}</span></div>
+            </div>
+          ` : '<div class="text-xs text-muted">暂无协议记录</div>'}
+        </div>
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs font-semibold text-muted mb-2 flex items-center gap-1">🛡️ 利益冲突筛查</div>
+          ${cf ? `
+            <div class="text-sm space-y-1">
+              <div><span class="text-muted text-xs">筛查编号：</span><span class="num">${cf.id}</span></div>
+              <div><span class="text-muted text-xs">类型：</span>${cf.subjectKind}</div>
+              <div><span class="text-muted text-xs">风险：</span><strong class="${cf.risk === '高' ? 'text-danger' : 'text-success'}">${cf.risk}</strong></div>
+              <div><span class="text-muted text-xs">详情：</span><span class="text-xs">${cf.detail}</span></div>
+              <div class="pt-1"><span class="text-xs px-2 py-0.5 rounded ${cf.hit ? 'bg-danger/10 text-danger border border-danger/30' : 'bg-success/10 text-success border border-success/30'}">${cf.hit ? '✗ 命中冲突' : '✓ 未命中'}</span></div>
+            </div>
+          ` : '<div class="text-xs text-muted">暂无筛查记录</div>'}
+        </div>
+      </div>
+    `;
+  }
+
+  if (stageId === 'preparation') {
+    // 项目组成员表 + 工作计划 + 资料清单
+    const members = p.team || [];
+    const checklist = (MockData.ddChecklist || []).slice(0, 5);
+    return `
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-border/60">
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs font-semibold text-muted mb-2 flex items-center gap-1">👥 项目组（${members.length} 人）</div>
+          <div class="space-y-1.5">
+            ${members.map(m => {
+              const name = typeof m === 'object' ? m.name : m;
+              const role = typeof m === 'object' ? m.role : '';
+              const yrs = typeof m === 'object' ? m.years : '';
+              return `<div class="text-xs flex items-center justify-between"><span><strong>${name}</strong> · ${role}</span><span class="num text-muted">${yrs} 年</span></div>`;
+            }).join('')}
+          </div>
+          <div class="mt-2 text-[10px] text-success">✓ 满足《程序指引》第七条（≥2 人 / 组长 ≥3 年）</div>
+        </div>
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs font-semibold text-muted mb-2 flex items-center gap-1">📅 工作计划</div>
+          <div class="text-xs space-y-1.5">
+            <div class="flex justify-between"><span>立项启动</span><span class="num text-success">${(p.stages[0] || {}).completedAt || '—'}</span></div>
+            <div class="flex justify-between"><span>项目组组建</span><span class="num text-success">${(p.stages[1] || {}).completedAt || '—'}</span></div>
+            <div class="flex justify-between"><span>实地调研</span><span class="num text-brand-600">${(p.stages[2] || {}).startedAt || '—'} 起</span></div>
+            <div class="flex justify-between"><span>报告初稿</span><span class="num text-muted">— 待启动</span></div>
+            <div class="flex justify-between"><span>计划交付</span><span class="num font-semibold">${p.plannedEnd || '—'}</span></div>
+          </div>
+        </div>
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs font-semibold text-muted mb-2 flex items-center gap-1">📥 资料清单（节选 ${checklist.length} 项）</div>
+          <div class="space-y-1">
+            ${checklist.map(it => `
+              <div class="text-xs flex items-center justify-between gap-2">
+                <span class="truncate" title="${it.item}">${it.item}</span>
+                <span class="text-[10px] ${it.received ? 'text-success' : 'text-warning'} flex-shrink-0">${it.received ? '✓' : '待补'}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (stageId === 'committee') {
+    // 本项目议程项 + 评委名单 + 投票结果
+    const agenda = (MockData.committeeAgenda || []).find(a => a.project === p.id) || (MockData.committeeAgenda || [])[0];
+    const members = (MockData.committeeMembers || []).slice(0, 5);
+    return `
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-border/60">
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs font-semibold text-muted mb-2 flex items-center gap-1">📋 本项目议项</div>
+          ${agenda ? `
+            <div class="text-xs space-y-1">
+              <div><span class="text-muted">议程编号：</span><span class="num">${agenda.id || '—'}</span></div>
+              <div><span class="text-muted">主体：</span>${p.subject}</div>
+              <div><span class="text-muted">建议等级：</span><strong class="text-brand-700">${agenda.proposedGrade || '—'}</strong></div>
+              <div><span class="text-muted">议项类型：</span>${agenda.itemType || '常规'}</div>
+            </div>
+          ` : '<div class="text-xs text-muted">尚未提交议项</div>'}
+        </div>
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs font-semibold text-muted mb-2 flex items-center gap-1">⚖️ 评委（≥5 人）</div>
+          <div class="space-y-1">
+            ${members.map(m => `<div class="text-xs flex justify-between"><span>${m.name}</span><span class="text-[10px] text-muted">${m.role || ''}</span></div>`).join('')}
+          </div>
+        </div>
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs font-semibold text-muted mb-2 flex items-center gap-1">🗳️ 投票（2/3 通过）</div>
+          <div class="text-xs text-muted">议项尚未发起投票</div>
+          <div class="text-[10px] text-muted mt-2">规则：≥5 人参会 · 2/3 同意有效 · 利冲委员回避</div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (stageId === 'archive') {
+    // 本项目所有底稿封存清单 + 区块链 hash
+    const wps = MockData.ddWorkpapers || [];
+    return `
+      <div class="mt-4 pt-4 border-t border-border/60">
+        <div class="text-xs font-semibold text-muted mb-3 flex items-center gap-1">🔒 本项目底稿封存清单（${wps.length} 项 · 区块链上链）</div>
+        <div class="border border-border rounded-md overflow-hidden">
+          <table class="w-full text-sm">
+            <thead><tr class="th text-left text-xs">
+              <th class="px-3 py-2">底稿编号</th>
+              <th class="py-2">名称</th>
+              <th class="py-2 text-right">条目</th>
+              <th class="py-2 text-right">大小</th>
+              <th class="py-2">状态</th>
+              <th class="py-2 pr-3">区块链 hash</th>
+            </tr></thead>
+            <tbody class="divide-y divide-border/60 text-xs">
+              ${wps.slice(0, 6).map((w, i) => `
+                <tr>
+                  <td class="px-3 py-2 num">${w.code || ('B-00' + (i+1))}</td>
+                  <td>${w.name}</td>
+                  <td class="text-right num">${w.items || 0}</td>
+                  <td class="text-right num text-muted">${w.size || '—'}</td>
+                  <td>${w.sealed ? '<span class="text-success">✓ 已封存</span>' : '<span class="text-warning">编辑中</span>'}</td>
+                  <td class="pr-3 num text-[10px] text-muted">0x${(Math.random().toString(16).slice(2, 10) + Math.random().toString(16).slice(2, 8)).slice(0, 12)}…</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-2 text-[10px] text-muted">依据《档案管理制度》：核心档案保留 ≥ 10 年 · 区块链 hash 不可篡改 · 销毁前须三签字</div>
+      </div>
+    `;
+  }
+
+  if (stageId === 'tracking') {
+    // 本项目跟踪订阅 + 21 类重大事项告警（仅本主体）
+    const sub21 = (MockData.trackingSubscriptions || []).find(t => t.subject === p.subject);
+    return `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-border/60">
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs font-semibold text-muted mb-2 flex items-center gap-1">📡 本项目跟踪订阅</div>
+          ${sub21 ? `
+            <div class="text-xs space-y-1.5">
+              <div><span class="text-muted">订阅状态：</span><span class="text-success font-medium">${sub21.status || '生效中'}</span></div>
+              <div><span class="text-muted">订阅起始：</span><span class="num">${sub21.startedAt || '—'}</span></div>
+              <div><span class="text-muted">下次定期跟踪：</span><span class="num text-brand-600">${sub21.nextPeriodic || '—'}</span></div>
+              <div><span class="text-muted">21 类事项扫描：</span><span class="text-success">✓ 实时</span></div>
+            </div>
+          ` : `
+            <div class="text-xs space-y-1.5">
+              <div><span class="text-muted">订阅状态：</span><span class="text-success font-medium">生效中</span></div>
+              <div><span class="text-muted">订阅起始：</span><span class="num">${p.createdAt || '—'}</span></div>
+              <div><span class="text-muted">下次定期跟踪：</span><span class="num text-brand-600">每年 6 月（年度跟踪）</span></div>
+              <div><span class="text-muted">21 类事项扫描：</span><span class="text-success">✓ 实时</span></div>
+            </div>
+          `}
+        </div>
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs font-semibold text-muted mb-2 flex items-center gap-1">⚠️ 本主体重大事项告警</div>
+          <div class="text-xs text-muted">
+            <div class="text-success">✓ 当前无 21 类重大事项告警</div>
+            <div class="mt-2 text-[10px]">监控范围：股权变动 / 重大诉讼 / 重大处罚 / 偿债能力 / 股东失信 / 行业景气下行 等 21 类</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  return '';
+}
+
+mountLayout('project-workbench', renderMain);
+</script>
+</body>
+</html>

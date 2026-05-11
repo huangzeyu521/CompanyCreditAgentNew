@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>跟踪评级 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260511a"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260511a" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260511a"></script>
+<script src="../assets/js/mock-data.js?v=20260511a"></script>
+<script src="../assets/js/copy-corpus.js?v=20260511a"></script>
+<script src="../assets/js/common.js?v=20260511a"></script>
+<script src="../assets/js/layout.js?v=20260511a"></script>
+<script src="../assets/js/prompts.js?v=20260511a"></script>
+<script src="../assets/js/ai-agent.js?v=20260511a"></script>
+<script>
+/* ============== ⑤ 跟踪评级 ==============
+ *  · 项目模式：本项目跟踪 detail view（受评主体 + 订阅元数据 + 21 类事项命中 + 预警 + 行业风险 + 行动区）
+ *  · 全局模式：全公司跟踪台账 list view
+ * ====================================================== */
+function renderMain() {
+  const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+  if (p) return renderDetailView(p);
+  return renderListView();
+}
+
+function renderDetailView(p) {
+  const allSubs = MockData.trackingSubscriptions || [];
+  const allAlerts = MockData.alerts || [];
+  // 优先按 project 字段匹配，回退到 name === subject
+  const sub = allSubs.find(s => s.project === p.id) || allSubs.find(s => s.name === p.subject) || null;
+  const subjectAlerts = allAlerts.filter(a => a.subject === p.subject);
+  const subj = (MockData.subjects || []).find(s => s.name === p.subject) || {};
+  const labels = subj.creditLabels || [];
+  const leadMember = (p.team && p.team[0]) || {};
+  const leadName = typeof leadMember === 'object' ? leadMember.name : leadMember;
+  const EVENTS_21 = MockData.TRACKING_EVENTS_21 || [];
+
+  const noticeBanner = `
+    <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+      <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span><strong class="text-ink">数据声明：</strong>跟踪订阅 / 事项触发 / 预警为 CCASCEA 演示数据，仅供产品功能展示。</span>
+    </div>`;
+
+  const header = `
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between flex-wrap gap-2">
+        <div class="min-w-0">
+          <h1 class="text-lg font-semibold flex items-center gap-2 flex-wrap">
+            <span class="num text-2xl text-brand-600 font-bold">⑤</span>
+            <span class="text-brand-700">${p.subject}</span>
+            <span class="text-muted">·</span>
+            跟踪评级
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">项目级 · detail view</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            本页展示本项目（<strong class="text-ink">${p.id}</strong>）的跟踪订阅状态、21 类重大事项命中情况、预警与行业风险。
+            <strong>定期跟踪</strong>：每年至少一次；<strong>不定期跟踪</strong>：21 类事项触发立即启动。依据《信用评级业务程序指引》第四十四至四十六条 + 《跟踪评级制度》。
+          </p>
+          <div class="text-[11px] mt-2 flex items-center gap-3">
+            <a href="project-workbench.html?projectId=${p.id}" class="text-brand-600 hover:underline">← 返回项目工作台</a>
+            <span class="text-muted">|</span>
+            <a href="tracking-stage.html" class="text-brand-600 hover:underline">查看全公司跟踪台账 →</a>
+          </div>
+        </div>
+        <button onclick="askAITracking()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90 flex-shrink-0">AI 助手 · 21 类事项识别</button>
+      </div>
+    </section>`;
+
+  const subjectCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5 overflow-hidden">
+      <div class="bg-gradient-to-r from-brand-600 to-brand-700 text-white px-5 py-4">
+        <div class="text-xs text-white/70 mb-1">受评主体</div>
+        <div class="text-lg font-bold flex items-center gap-2 flex-wrap">
+          <span>${p.subject}</span>
+          ${labels.map(l => `<span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full border border-white/30">${l}</span>`).join('')}
+        </div>
+        <div class="text-[11px] text-white/85 mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          <span>USCC · <span class="num">${subj.uscc || '—'}</span></span>
+          <span>行业 · ${p.industry || '—'}</span>
+          <span>评级类型 · ${p.ratingType || (Array.isArray(p.ratingTypes) ? p.ratingTypes.join('+') : '—')}</span>
+          <span>项目组组长 · ${leadName || '—'}</span>
+          <span>立项 · ${p.createdAt || '—'}</span>
+        </div>
+      </div>
+    </section>`;
+
+  if (!sub) {
+    return `
+      ${noticeBanner}
+      ${header}
+      ${subjectCard}
+      <section class="bg-white rounded-lg shadow-card px-5 py-16 text-center">
+        <div class="text-4xl mb-3">📡</div>
+        <div class="text-sm font-medium">本项目尚未启用跟踪订阅</div>
+        <div class="text-xs text-muted mt-2">主体发布后系统自动订阅，或手动启用</div>
+        <button onclick="toast('已为本项目启用跟踪订阅','success')" class="mt-4 text-xs px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700">为本项目启用跟踪订阅</button>
+      </section>
+    `;
+  }
+
+  // 订阅元数据 + 总体结论
+  const triggered = sub.triggeredEvents || [];
+  const highSeverity = triggered.filter(e => e.severity === '高').length;
+  const isUrgent = sub.periodicStatus === 'urgent' || highSeverity > 0 || sub.alertCount >= 3;
+  const verdictCls = isUrgent ? 'bg-danger/5 border-danger/40'
+                  : triggered.length > 0 ? 'bg-warning/5 border-warning/40'
+                  : 'bg-success/5 border-success/40';
+  const verdictIcon = isUrgent ? '🔴' : triggered.length > 0 ? '🟡' : '🟢';
+  const verdictText = isUrgent ? `紧急 · 高严重度事项 ${highSeverity} 项 + ${sub.alertCount} 条活跃预警`
+                    : triggered.length > 0 ? `观察 · 21 类事项命中 ${triggered.length} 项 / ${sub.alertCount} 条预警`
+                    : `正常 · 上次跟踪 ${sub.lastTrackedAt}`;
+  const verdictTone = isUrgent ? 'text-danger' : triggered.length > 0 ? 'text-warning' : 'text-success';
+
+  const metaCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between flex-wrap gap-2">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          本项目跟踪状态
+        </h2>
+        <span class="text-[11px] num text-muted">订阅起：${sub.subscribedAt} · 已订阅 ${sub.reportCount} 份跟踪报告</span>
+      </div>
+      <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2 border-2 ${verdictCls} rounded-lg p-4 flex items-center gap-4">
+          <div class="text-4xl ${verdictTone} font-bold">${verdictIcon}</div>
+          <div class="flex-1">
+            <div class="text-base font-semibold ${verdictTone}">${verdictText}</div>
+            <div class="text-xs text-muted mt-1 leading-snug">最新等级：<strong class="text-ink">${sub.latestGrade || '—'}</strong> · 上次跟踪：<span class="num">${sub.lastTrackedAt}</span> · 下次定期：<span class="num">${sub.nextDueDate}</span></div>
+            <div class="mt-2 flex items-center gap-2 flex-wrap">
+              <span class="text-[10px] px-2 py-0.5 rounded bg-bg border border-border">行业：${sub.industryRisk && sub.industryRisk.name}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded ${sub.industryRisk && (sub.industryRisk.cycle.includes('下行') ? 'bg-danger/10 text-danger border border-danger/30' : sub.industryRisk.cycle.includes('调整') ? 'bg-warning/10 text-warning border border-warning/30' : 'bg-success/10 text-success border border-success/30')}">${sub.industryRisk && sub.industryRisk.cycle}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-muted">行业风险评分：${sub.industryRisk && sub.industryRisk.score}</span>
+            </div>
+          </div>
+        </div>
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span class="text-muted">活跃预警</span><span class="num font-medium ${sub.alertCount>0?'text-warning':'text-success'}">${sub.alertCount}</span>
+          </div>
+          <div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span class="text-muted">21 类事项命中</span><span class="num font-medium ${triggered.length>0?'text-warning':'text-success'}">${triggered.length} / 21</span>
+          </div>
+          <div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span class="text-muted">跟踪报告</span><span class="num font-medium">${sub.reportCount}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted">定期跟踪状态</span><span class="font-medium ${sub.periodicStatus === 'urgent' ? 'text-danger' : 'text-success'}">${sub.periodicStatus === 'urgent' ? '加急' : '按期'}</span>
+          </div>
+        </div>
+      </div>
+    </section>`;
+
+  // 21 类事项逐条命中
+  const triggeredMap = {};
+  triggered.forEach(e => { triggeredMap[e.eventNo] = e; });
+  const eventsCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between flex-wrap gap-2">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          21 类重大事项逐条结果
+        </h2>
+        <span class="text-[11px] text-muted">命中 <strong class="${triggered.length>0?'text-warning':'text-success'}">${triggered.length}</strong> / 21 · 通过 <strong class="text-success">${21 - triggered.length}</strong></span>
+      </div>
+      <div class="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+        ${EVENTS_21.map((name, idx) => {
+          const eventNo = idx + 1;
+          const hit = triggeredMap[eventNo];
+          if (hit) {
+            const sevCls = hit.severity === '高' ? 'bg-danger/10 text-danger border-danger/30'
+                         : hit.severity === '中' ? 'bg-warning/10 text-warning border-warning/30'
+                         : 'bg-brand-50 text-brand-700 border-brand-200';
+            const cardCls = hit.severity === '高' ? 'border-danger/40 bg-danger/5'
+                          : 'border-warning/40 bg-warning/5';
+            return `
+              <div class="border ${cardCls} rounded p-3">
+                <div class="flex items-start gap-2">
+                  <span class="w-6 h-6 rounded bg-warning text-white text-[11px] flex items-center justify-center font-semibold flex-shrink-0">${eventNo}</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="text-xs font-medium">${name}</span>
+                      <span class="text-[10px] px-1.5 py-0.5 rounded border ${sevCls}">${hit.severity}</span>
+                    </div>
+                    <div class="text-[11px] text-ink/80 leading-snug mt-1">${hit.desc}</div>
+                    <div class="text-[10px] num text-muted mt-0.5">${hit.triggeredAt}</div>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+          return `
+            <div class="border border-border rounded p-2.5 opacity-70">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded bg-bg text-muted text-[10px] flex items-center justify-center font-semibold flex-shrink-0">${eventNo}</span>
+                <span class="text-[11px] text-muted leading-snug flex-1 min-w-0">${name}</span>
+                <span class="text-success text-xs flex-shrink-0">✓</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div class="px-5 py-3 border-t border-border bg-bg/40 text-[11px] text-muted">
+        21 类事项规则依据《跟踪评级制度》第七条；命中即生成不定期跟踪工单 → 跟踪报告 → 监管报送。
+      </div>
+    </section>`;
+
+  // 活跃预警
+  const alertsCard = subjectAlerts.length ? `
+    <section class="bg-white rounded-lg shadow-card mb-5 border-l-4 border-warning">
+      <div class="px-5 py-3 border-b border-border">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-warning rounded"></span>
+          本主体活跃预警（${subjectAlerts.length}）
+        </h2>
+      </div>
+      <div class="p-5 space-y-2">
+        ${subjectAlerts.map(a => {
+          const levelCls = a.level === 'red' ? 'border-danger/40 bg-danger/5'
+                        : a.level === 'yellow' ? 'border-warning/40 bg-warning/5'
+                        : 'border-brand-300 bg-brand-50';
+          return `
+            <div class="border ${levelCls} rounded p-3 flex items-start gap-3">
+              <span class="text-xl flex-shrink-0">${a.icon}</span>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium">${a.title}</div>
+                <div class="text-xs text-muted leading-snug mt-1">${a.desc}</div>
+              </div>
+              <span class="text-[10px] text-muted flex-shrink-0">${a.ago}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  ` : '';
+
+  // 定期 vs 不定期规则
+  const rulesCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
+        <div class="p-5">
+          <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            定期跟踪（第四十五条）
+          </h3>
+          <ul class="text-xs space-y-2 leading-relaxed text-ink/85">
+            <li>· 每年至少出具一次定期跟踪评级报告</li>
+            <li>· 持续期超过 1 年的受评债券须每年定期跟踪</li>
+            <li>· 与前次评级报告保持连贯，重点说明跟踪期变化</li>
+          </ul>
+          <div class="mt-3 text-[11px] text-muted">本项目下次定期：<span class="num text-ink/85">${sub.nextDueDate}</span></div>
+        </div>
+        <div class="p-5">
+          <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+            <span class="w-1 h-4 bg-warning rounded"></span>
+            不定期跟踪（第四十六条）
+          </h3>
+          <ul class="text-xs space-y-2 leading-relaxed text-ink/85">
+            <li>· 21 类重大事项触发立即启动</li>
+            <li>· 公共信用 ABCD 等级变化、严重失信、信用修复均触发</li>
+            <li>· 命中即生成不定期跟踪工单 → 跟踪报告</li>
+          </ul>
+          <div class="mt-3 text-[11px] text-muted">本项目近期触发：<span class="num text-ink/85">${triggered.length} 项</span></div>
+        </div>
+      </div>
+    </section>`;
+
+  // 行动区
+  const actions = `
+    <section class="bg-bg/40 border border-border rounded-lg p-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="text-xs text-muted">
+        ${isUrgent ? '⚠️ 紧急跟踪状态，建议立即出具不定期跟踪评级报告。' : `下次定期跟踪截止 ${sub.nextDueDate}。`}
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button onclick="toast('已生成不定期跟踪工单','success')" class="text-xs px-3 py-1.5 ${isUrgent ? 'bg-danger' : 'bg-brand-600'} text-white rounded hover:opacity-90">${isUrgent ? '立即出具跟踪报告' : '触发不定期跟踪'}</button>
+        <a href="tracking.html?projectId=${p.id}" class="text-xs px-3 py-1.5 border border-border rounded hover:bg-white">查看监控订阅</a>
+        <a href="industry-scan.html" class="text-xs px-3 py-1.5 border border-border rounded hover:bg-white">行业风险扫描 →</a>
+      </div>
+    </section>`;
+
+  return `
+    ${noticeBanner}
+    ${header}
+    ${subjectCard}
+    ${metaCard}
+    ${alertsCard}
+    ${eventsCard}
+    ${rulesCard}
+    ${actions}
+  `;
+}
+
+function renderListView() {
+  const subs = MockData.trackingSubscriptions || [];
+  const alerts = MockData.alerts || [];
+  const totalAlerts = subs.reduce((s,x)=>s+(x.alertCount||0), 0);
+  const EVENTS_21 = MockData.TRACKING_EVENTS_21 || [];
+  return `
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between flex-wrap gap-2">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2 flex-wrap">
+            <span class="num text-2xl text-brand-600 font-bold">⑤</span>
+            跟踪评级 · 阶段工作台
+            <span class="text-xs text-muted font-normal ml-2">《信用评级业务程序指引》第四十四至四十六条 · 《跟踪评级制度》</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-bg text-muted border border-border">全公司跟踪台账 · list view</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            评级业务的<strong>持续性核心</strong>。定期跟踪（每年至少一次）+ 不定期跟踪（21 类事项触发）+
+            公共信用动态监测 + 行业风险扫描，及时分析变化对信用等级的影响。
+          </p>
+        </div>
+        <button onclick="askAITracking()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90 flex-shrink-0">AI 助手 · 21 类事项识别</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">订阅主体</div><div class="num text-2xl font-bold text-brand-600 mt-1">${subs.length}</div></div>
+        <div class="border border-border rounded-md p-3 ${totalAlerts>0?'bg-warning/5':''}"><div class="text-xs text-muted">活跃预警</div><div class="num text-2xl font-bold text-warning mt-1">${totalAlerts}</div></div>
+        <div class="border border-border rounded-md p-3 ${alerts.find(a=>a.level==='red')?'bg-danger/5':''}"><div class="text-xs text-danger">D 级 / 严重失信</div><div class="num text-2xl font-bold text-danger mt-1">${alerts.filter(a=>a.level==='red').length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">21 类事项命中</div><div class="num text-2xl font-bold text-brand-700 mt-1">${subs.reduce((s,x)=>s+(x.triggeredEvents?x.triggeredEvents.length:0),0)}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本月跟踪报告</div><div class="num text-2xl font-bold text-success mt-1">14</div></div>
+      </div>
+    </section>
+
+    <!-- 订阅主体列表（点击进入项目 detail） -->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          订阅主体列表（${subs.length}）
+        </h3>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2">主体名称</th>
+          <th class="py-2">USCC</th>
+          <th class="py-2 text-center">最新等级</th>
+          <th class="py-2 text-center">活跃预警</th>
+          <th class="py-2 text-center">21 类命中</th>
+          <th class="py-2">行业景气</th>
+          <th class="py-2">下次定期</th>
+          <th class="py-2 pr-4 text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          ${subs.map(s => `
+            <tr class="hover:bg-bg ${s.alertCount>2?'bg-warning/5':''}">
+              <td class="px-4 py-2.5 text-sm font-medium">${s.name}</td>
+              <td class="text-xs num text-muted">${s.uscc}</td>
+              <td class="text-center text-xs font-medium">${s.latestGrade || '—'}</td>
+              <td class="text-center"><span class="text-xs ${s.alertCount>0?'text-warning font-semibold':'text-muted'}">${s.alertCount}</span></td>
+              <td class="text-center"><span class="text-xs ${s.triggeredEvents && s.triggeredEvents.length>0?'text-warning font-semibold':'text-muted'}">${s.triggeredEvents ? s.triggeredEvents.length : 0}</span></td>
+              <td class="text-xs">${s.industryRisk ? `${s.industryRisk.name} · ${s.industryRisk.cycle}` : '—'}</td>
+              <td class="text-xs num text-muted">${s.nextDueDate || '—'}</td>
+              <td class="text-right pr-4">
+                ${s.project ? `<a href="tracking-stage.html?projectId=${s.project}" class="text-xs text-brand-600 hover:underline">详情 →</a>` : '<span class="text-xs text-muted">无关联项目</span>'}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 21 类重大事项分类 -->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          21 类重大事项分类（《跟踪评级制度》第七条）
+        </h3>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-2 p-5 text-xs">
+        ${EVENTS_21.map((t, i) => `
+          <div class="border border-border rounded p-2 hover:border-brand-300 hover:bg-brand-50/30">
+            <div class="flex items-start gap-2">
+              <span class="w-5 h-5 rounded bg-brand-50 text-brand-700 text-[10px] flex items-center justify-center font-semibold flex-shrink-0">${i+1}</span>
+              <span class="leading-snug">${t}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <!-- 子工作台 -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+      ${[
+        { href:'tracking.html',       title:'21 类重大事项监控 + 订阅管理', desc:'实时监测主体重大事项 · 21 类规则触发不定期跟踪工单 · 公共信用动态监测', icon:'🔔', kpi:`${subs.length} 个主体订阅 / ${totalAlerts} 条预警` },
+        { href:'industry-scan.html',   title:'行业风险扫描',                desc:'行业 / 区域批量扫描 · TOP5 风险清单 · 熔断主体专列 · 等级分布趋势', icon:'📡', kpi:'8 大行业景气分析' }
+      ].map(c => `
+        <a href="${c.href}" class="block border border-border rounded-lg p-5 hover:border-brand-300 hover:bg-brand-50/30 hover:shadow-card transition-all">
+          <div class="text-3xl mb-2">${c.icon}</div>
+          <div class="text-base font-semibold text-brand-700">${c.title}</div>
+          <div class="text-xs text-muted leading-snug mt-2">${c.desc}</div>
+          <div class="flex items-center justify-between mt-3 pt-3 border-t border-border">
+            <span class="text-xs text-muted">${c.kpi}</span>
+            <span class="text-xs text-brand-600 hover:underline">进入工作台 →</span>
+          </div>
+        </a>
+      `).join('')}
+    </section>
+
+    <!-- 阶段流转 -->
+    <section class="flex items-center justify-between bg-bg/40 border border-border rounded-lg p-4">
+      <a href="review-stage.html" class="text-xs text-brand-600 hover:underline">← 上一阶段：④ 报告与审核</a>
+      <a href="workbench.html" class="text-xs px-4 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700">返回工作台首页</a>
+    </section>
+  `;
+}
+
+function askAITracking() {
+  const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+  const subs = MockData.trackingSubscriptions || [];
+  const alerts = MockData.alerts || [];
+  let ctx, ask;
+  if (p) {
+    const sub = subs.find(s => s.project === p.id) || subs.find(s => s.name === p.subject);
+    const myAlerts = alerts.filter(a => a.subject === p.subject);
+    ctx = `【本项目】${p.id} ${p.subject}\n【订阅状态】${sub ? '已订阅 ' + sub.subscribedAt + '，等级 ' + sub.latestGrade : '未订阅'}\n【21 类事项命中】${sub && sub.triggeredEvents ? sub.triggeredEvents.length : 0} 项\n${sub && sub.triggeredEvents ? sub.triggeredEvents.map(e => '· #' + e.eventNo + ' ' + e.eventName + ' (' + e.severity + ') ' + e.desc).join('\n') : ''}\n【活跃预警】${myAlerts.length}`;
+    ask = `请基于本项目（${p.subject}）的跟踪状态：① 21 类事项命中的等级影响判断（上调/不变/下调/列入观察）② 建议下一步动作（出具不定期跟踪 / 等待定期跟踪 / 立即专项）③ 给客户经理的 3 句话沟通要点 ④ 引用《跟踪评级制度》第七条对应条款。`;
+  } else {
+    ctx = '【订阅主体】' + subs.length + ' 家\n【近期预警】' + alerts.length + ' 条（红 ' + alerts.filter(a=>a.level==='red').length + ' / 黄 ' + alerts.filter(a=>a.level==='yellow').length + ' / 蓝 ' + alerts.filter(a=>a.level==='blue').length + '）\n【重点关注主体】' + alerts.map(a=>a.subject).join(' / ');
+    ask = '请基于以上订阅与预警态势：① 列出本期可能命中 21 类重大事项的主体 ② 给出每个主体的事件分类 + 等级影响判断 ③ 建议触发的跟踪动作 ④ 给客户经理的 3 句话沟通要点。';
+  }
+  AIAgent.setScene('track-events');
+  AIAgent.send(ask, ctx);
+}
+
+mountLayout('tracking-stage', renderMain);
+</script>
+</body>
+</html>

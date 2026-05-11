@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>项目登记与立项 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 项目登记与立项（FR-A-001 / A-002 / A-005 / A-006）============== */
+function renderMain() {
+  const projects = MockData.projects;
+  const statusMap = {
+    in_progress: { label:'尽调中',     cls:'bg-brand-100 text-brand-700 border-brand-200' },
+    review:      { label:'三审中',     cls:'bg-warning/10 text-warning border-warning/30' },
+    committee:   { label:'信评委待审', cls:'bg-success/10 text-success border-success/30' },
+    published:   { label:'已发布',     cls:'bg-bg text-muted border-border' },
+    '已立项':    { label:'已立项',     cls:'bg-success/10 text-success border-success/30' }
+  };
+
+  // 工具：把行业代码转成展示名
+  function industryDisplay(p) {
+    if (!p.industry) return '—';
+    // 先在所有 industriesByKind 里查代码 → 名称
+    const all = MockData.industriesByKind || {};
+    for (const k of Object.keys(all)) {
+      const hit = (all[k] || []).find(i => i.code === p.industry);
+      if (hit) return hit.name;
+    }
+    // 旧数据已经是显示名，直接返回
+    return p.industry;
+  }
+  // 工具：把债项代码转成展示名
+  function bondDisplay(p) {
+    if (p.bond && p.bond.type) {
+      const all = MockData.bondTypesByKind || {};
+      for (const k of Object.keys(all)) {
+        const hit = (all[k] || []).find(b => b.code === p.bond.type);
+        if (hit) return hit.name;
+      }
+      return p.bond.type;
+    }
+    return p.bondType || '—';
+  }
+  // 工具：评级类型展示
+  function ratingDisplay(p) {
+    if (Array.isArray(p.ratingTypes) && p.ratingTypes.length) return p.ratingTypes.join(' + ');
+    return p.ratingType || '—';
+  }
+  // 工具：项目组负责人 + 人数
+  function teamDisplay(p) {
+    if (Array.isArray(p.team) && p.team.length) {
+      const lead = p.team.find(t => t && (t.role === '组长' || t.role === '部门总监' || t.role === '评级总监')) || p.team[0];
+      const name = (lead && lead.name) ? lead.name : (p.leadAnalyst || '—');
+      return `${name} <span class="text-muted">/ ${p.team.length} 人</span>`;
+    }
+    return `${p.leadAnalyst || '—'} <span class="text-muted">/ ${(p.team && p.team.length) || 0} 人</span>`;
+  }
+
+  const rows = projects.map(p => {
+    const s = statusMap[p.status] || { label:p.status, cls:'bg-bg text-muted' };
+    return `
+      <tr class="hover:bg-bg">
+        <td class="px-4 py-2.5 num text-xs">${p.id}</td>
+        <td class="text-sm font-medium">${p.subject}</td>
+        <td class="text-xs text-muted">${industryDisplay(p)}</td>
+        <td class="text-xs">${ratingDisplay(p)}</td>
+        <td class="text-xs text-muted">${bondDisplay(p)}</td>
+        <td class="text-xs">${teamDisplay(p)}</td>
+        <td class="text-xs num text-muted">${p.createdAt || '—'}</td>
+        <td><span class="text-xs px-2 py-0.5 rounded-full border ${s.cls}">${s.label}</span></td>
+        <td class="text-right pr-4">
+          <a href="project-workbench.html?projectId=${encodeURIComponent(p.id)}" class="text-xs text-brand-600 hover:underline">进入工作台 →</a>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <!-- 顶部说明 -->
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            项目登记与立项
+            <span class="text-xs text-muted font-normal">FR-A-001 / FR-A-002 / FR-A-005 / FR-A-006</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            按《信用评级业务程序指引》第二章接受委托规则：项目电子登记、按 GB 32100-2015 编码、组建项目组（≥2 人，组长 ≥3 年）、
+            利益冲突筛查、电子委托协议、防火墙隔离市场部 / 评级业务部数据访问。
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="askAIIntake()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md flex items-center gap-1 hover:opacity-90">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9.75 9.75h.01M14.25 9.75h.01M9 16h6m-3-12a9 9 0 100 18 9 9 0 000-18z"/></svg>
+            AI 助手
+          </button>
+          <button onclick="openIntakeModal()" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 4v16m8-8H4"/></svg>
+            新建项目
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3">
+          <div class="text-xs text-muted">在评项目</div>
+          <div class="num text-2xl font-bold text-brand-600 mt-1">${projects.length}</div>
+        </div>
+        <div class="border border-border rounded-md p-3">
+          <div class="text-xs text-muted">本月新立项</div>
+          <div class="num text-2xl font-bold text-success mt-1">12</div>
+        </div>
+        <div class="border border-border rounded-md p-3">
+          <div class="text-xs text-muted">利益冲突命中</div>
+          <div class="num text-2xl font-bold text-warning mt-1">1</div>
+        </div>
+        <div class="border border-border rounded-md p-3">
+          <div class="text-xs text-muted">电子签章协议</div>
+          <div class="num text-2xl font-bold text-brand-700 mt-1">${MockData.contracts.length}</div>
+        </div>
+        <div class="border border-border rounded-md p-3 bg-success/5">
+          <div class="text-xs text-success">防火墙状态</div>
+          <div class="text-base font-bold text-success mt-1">✓ 隔离生效</div>
+          <div class="text-[10px] text-muted">市场部 ↔ 评级业务部</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 项目清单 -->
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          项目清单（${projects.length} 项）
+        </h2>
+        <div class="flex items-center gap-1">
+          <input type="text" placeholder="搜索主体 / 项目编号..." class="text-xs px-2 py-1 border border-border rounded focus:outline-none focus:border-accent w-48" />
+          <button class="text-xs px-2 py-1 border border-border rounded hover:bg-bg">筛选</button>
+        </div>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2.5">项目编号</th>
+          <th class="py-2.5">受评对象</th>
+          <th class="py-2.5">行业</th>
+          <th class="py-2.5">评级类型</th>
+          <th class="py-2.5">债项</th>
+          <th class="py-2.5">项目组</th>
+          <th class="py-2.5">创建</th>
+          <th class="py-2.5">状态</th>
+          <th class="py-2.5 pr-4 text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">${rows}</tbody>
+      </table>
+    </section>
+
+    <!-- 委托协议 + 防火墙状态 -->
+    <section class="grid grid-cols-3 gap-5 mt-5">
+      <div class="col-span-2 bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            评级委托协议（FR-A-005）
+          </h3>
+          <span class="text-xs text-muted">已电子签章 ${MockData.contracts.length} 份</span>
+        </div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2">协议编号</th>
+            <th class="py-2">关联项目</th>
+            <th class="py-2">委托方</th>
+            <th class="py-2">金额（万元）</th>
+            <th class="py-2">签章</th>
+            <th class="py-2">签订日期</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border">
+            ${MockData.contracts.map(c => `
+              <tr class="hover:bg-bg">
+                <td class="px-4 py-2 num text-xs">${c.id}</td>
+                <td class="text-xs">${c.project}</td>
+                <td class="text-xs">${c.client}</td>
+                <td class="text-xs num">${c.amount}</td>
+                <td class="text-xs ${c.sealed ? 'text-success' : 'text-warning'}">${c.sealed ? '✓ 已签章' : '✗ 未签章'}</td>
+                <td class="text-xs num text-muted">${c.signedAt}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="px-5 py-3 border-t border-border bg-bg/50 text-xs text-muted">
+          <strong>合规提示：</strong>评级费用与级别脱钩；不得在协议中承诺级别；评级方案中"按级别收费"等关键词将被合规规则引擎自动拦截。
+        </div>
+      </div>
+
+      <!-- 防火墙状态 -->
+      <div class="bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            防火墙隔离状态（FR-A-006）
+          </h3>
+        </div>
+        <div class="p-4 space-y-3">
+          <div class="flex items-center justify-between p-3 border border-success/30 bg-success/5 rounded">
+            <div>
+              <div class="text-sm font-medium text-success">✓ 市场部 / 评级业务部</div>
+              <div class="text-[10px] text-muted">数据访问严格隔离</div>
+            </div>
+            <span class="text-xs text-success">已隔离</span>
+          </div>
+          <div class="flex items-center justify-between p-3 border border-success/30 bg-success/5 rounded">
+            <div>
+              <div class="text-sm font-medium text-success">✓ 项目组 / 复核团队</div>
+              <div class="text-[10px] text-muted">三审独立性维护</div>
+            </div>
+            <span class="text-xs text-success">已隔离</span>
+          </div>
+          <div class="flex items-center justify-between p-3 border border-success/30 bg-success/5 rounded">
+            <div>
+              <div class="text-sm font-medium text-success">✓ 信评委成员回避</div>
+              <div class="text-[10px] text-muted">利益相关项目自动回避</div>
+            </div>
+            <span class="text-xs text-success">已生效</span>
+          </div>
+          <div class="text-[11px] text-muted leading-relaxed pt-2 border-t border-border">
+            依据《信用评级业务程序指引》及《信用评审委员会制度》，市场部承接项目后必须经合规部审查，方可解锁评级业务部访问权限。
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+/* ============================================================
+ * 新建评级项目（P0 + P1 + P1.5 改造）
+ * 5 主体类别 × 33 债项 × 双评级 × 绿债专项
+ * ============================================================ */
+const intakeFormState = {
+  kind: 'corp',          // 主体类别
+  doSubject: true,       // 是否做主体评级
+  doBond: false,         // 是否做债项评级
+  bondType: '',          // 债项类型 code
+  isGreen: false,        // 是否绿色债券
+  businessType: 'first'
+};
+
+function openIntakeModal() {
+  // 重置状态
+  Object.assign(intakeFormState, {
+    kind:'corp', doSubject:true, doBond:false, bondType:'', isGreen:false, businessType:'first'
+  });
+  openModal({
+    title: '新建评级项目',
+    width: 'max-w-4xl',
+    content: renderIntakeForm(),
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded hover:bg-bg">取消</button>
+      <button onclick="submitIntakeForm()" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded hover:bg-brand-700">创建并立项</button>
+    `
+  });
+  // 同步绑定事件（DOM 已挂载完毕）
+  bindIntakeEvents();
+}
+
+function renderIntakeForm() {
+  const D = window.MockData;
+  const kindOpts = D.subjectKinds.map(k => `<option value="${k.code}" ${intakeFormState.kind===k.code?'selected':''}>${k.name} · ${k.desc}</option>`).join('');
+  const businessOpts = D.businessTypes.map(b => `<option value="${b.code}" ${intakeFormState.businessType===b.code?'selected':''}>${b.name}</option>`).join('');
+  const marketOpts  = D.marketTypes.map(m => `<option value="${m.code}">${m.name}</option>`).join('');
+
+  return `
+    <form id="intake-form" class="space-y-4 text-sm">
+      <!-- ══════ Step 0：基础信息 ══════ -->
+      <fieldset class="border border-border rounded-md p-4 bg-bg/30">
+        <legend class="text-xs font-semibold text-brand-700 px-2">① 基础信息</legend>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="col-span-2">
+            <label class="text-xs text-muted">主体类别 <span class="text-danger">*</span></label>
+            <select id="if-kind" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent">
+              ${kindOpts}
+            </select>
+            <div class="text-[10px] text-muted mt-1">选择后下方"行业 / 区划"和"债项类型"将按该类别筛选可选项。</div>
+          </div>
+
+          <div>
+            <label class="text-xs text-muted">受评对象 <span class="text-danger">*</span></label>
+            <input id="if-subject" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" placeholder="如：南京钢铁联合有限公司 / 2026 年内蒙古再融资一般债（二期）" />
+          </div>
+
+          <div>
+            <label class="text-xs text-muted">发行人</label>
+            <input id="if-issuer" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" placeholder="债项评级时填，主体评级可留空" />
+          </div>
+
+          <div>
+            <label class="text-xs text-muted">委托方</label>
+            <input id="if-client" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" placeholder="发行人 / 主承销商 / 财务顾问 / 财政厅" />
+          </div>
+
+          <div>
+            <label class="text-xs text-muted">计划交付日期 <span class="text-danger">*</span></label>
+            <input id="if-due" type="date" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" />
+          </div>
+
+          <div>
+            <label class="text-xs text-muted">行业 / 区划 <span class="text-danger">*</span></label>
+            <select id="if-industry" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent"></select>
+          </div>
+
+          <div>
+            <label class="text-xs text-muted">市场类型 <span class="text-danger">*</span></label>
+            <select id="if-market" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent">${marketOpts}</select>
+          </div>
+
+          <div>
+            <label class="text-xs text-muted">业务类型 <span class="text-danger">*</span></label>
+            <select id="if-business" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent">${businessOpts}</select>
+            <div id="if-business-hint" class="text-[10px] text-muted mt-1"></div>
+          </div>
+
+          <div class="col-span-2">
+            <label class="text-xs text-muted">评级类型 <span class="text-danger">*</span></label>
+            <div class="mt-1 grid grid-cols-2 gap-2">
+              <label class="border border-border rounded p-2 flex items-center gap-2 cursor-pointer hover:bg-white">
+                <input type="checkbox" id="if-do-subject" ${intakeFormState.doSubject?'checked':''} />
+                <span class="text-sm">主体评级</span>
+              </label>
+              <label class="border border-border rounded p-2 flex items-center gap-2 cursor-pointer hover:bg-white">
+                <input type="checkbox" id="if-do-bond" ${intakeFormState.doBond?'checked':''} />
+                <span class="text-sm">债项评级（双评级须同时勾选）</span>
+              </label>
+            </div>
+            <div class="text-[10px] text-muted mt-1">同时勾选两项 = 双评级（如西安航空城绿债：主体 AA+ + 债项 AAA）。</div>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- ══════ Step 1：债项信息 (条件) ══════ -->
+      <fieldset id="if-bond-section" class="border border-border rounded-md p-4 bg-bg/30 hidden">
+        <legend class="text-xs font-semibold text-brand-700 px-2">② 债项信息</legend>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="col-span-2">
+            <label class="text-xs text-muted">债项类型 <span class="text-danger">*</span></label>
+            <select id="if-bond-type" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent"></select>
+          </div>
+          <div>
+            <label class="text-xs text-muted">发行规模（亿元）</label>
+            <input id="if-amount" type="number" step="0.01" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" placeholder="如 1.60" />
+          </div>
+          <div>
+            <label class="text-xs text-muted">期限（年）</label>
+            <input id="if-tenor" type="number" step="0.5" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" placeholder="如 7" />
+          </div>
+          <div>
+            <label class="text-xs text-muted">票面利率（%）</label>
+            <input id="if-coupon" type="number" step="0.01" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" placeholder="如 3.85" />
+          </div>
+          <div>
+            <label class="text-xs text-muted">偿债方式</label>
+            <select id="if-repay" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent">
+              <option>到期一次还本付息</option>
+              <option>每年付息一次到期还本</option>
+              <option>分次还本（如每年等额）</option>
+              <option>等额本息</option>
+              <option>含权（赎回 / 回售）</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-muted">起息日</label>
+            <input id="if-start" type="date" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" />
+          </div>
+          <div>
+            <label class="text-xs text-muted">到期日</label>
+            <input id="if-end" type="date" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" />
+          </div>
+          <div class="col-span-2">
+            <label class="text-xs text-muted">募集资金用途</label>
+            <textarea id="if-use" rows="2" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" placeholder="如：1.008 亿元用于西安航空基地节能降碳项目；0.592 亿元用于补充流动资金"></textarea>
+          </div>
+
+          <div>
+            <label class="text-xs text-muted">担保方式</label>
+            <select id="if-guarantee" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent"></select>
+          </div>
+          <div>
+            <label class="text-xs text-muted">担保人 / 担保人级别</label>
+            <div class="flex gap-2 mt-1">
+              <input id="if-guarantor" class="flex-1 px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent" placeholder="担保人全称" />
+              <select id="if-guarantor-grade" class="w-24 px-2 py-2 border border-border rounded-md text-sm">
+                <option value="">—</option>
+                <option>AAA</option><option>AA+</option><option>AA</option><option>AA-</option>
+                <option>A+</option><option>A</option><option>A-</option><option>BBB+</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- ══════ Step 2：绿色债券专项 (条件) ══════ -->
+      <fieldset id="if-green-section" class="border border-success/40 rounded-md p-4 bg-success/5 hidden">
+        <legend class="text-xs font-semibold text-success px-2">③ 绿色债券专项 · GBP 2021 / CBI v3.1 / 人行(2021)</legend>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="col-span-2">
+            <label class="text-xs text-muted">绿色项目目录条目（人民银行 2021 版）<span class="text-danger">*</span></label>
+            <select id="if-green-cat" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent">
+              <option value="">请选择...</option>
+            </select>
+            <div class="text-[10px] text-muted mt-1">为西安航空城此类节能降碳项目，应选 2.1 或 1.1。</div>
+          </div>
+          <div>
+            <label class="text-xs text-muted">第三方鉴证机构 <span class="text-danger">*</span></label>
+            <select id="if-green-assurer" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent">
+              <option value="">请选择...</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-muted">绿色程度自评</label>
+            <select id="if-green-level" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent">
+              <option>深绿</option><option>中绿</option><option>浅绿</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-muted">绿色等级预估（G-1/G-2/G-3）</label>
+            <select id="if-green-grade" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:border-accent">
+              <option>G-1（最优）</option><option>G-2</option><option>G-3</option>
+            </select>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- ══════ Step 3：项目组 + 方法学 ══════ -->
+      <fieldset class="border border-border rounded-md p-4 bg-bg/30">
+        <legend class="text-xs font-semibold text-brand-700 px-2">④ 项目组与方法学</legend>
+        <div>
+          <label class="text-xs text-muted">项目组 <span class="text-danger">*</span></label>
+          <div class="mt-1 grid grid-cols-3 gap-2 text-xs">
+            <label class="border border-border rounded p-2 flex items-center gap-1"><input type="checkbox" class="if-team" data-name="王明远" data-years="10" data-role="组长" checked /> 王明远（组长，10y）</label>
+            <label class="border border-border rounded p-2 flex items-center gap-1"><input type="checkbox" class="if-team" data-name="李雨欣" data-years="4" data-role="分析师" checked /> 李雨欣（4y）</label>
+            <label class="border border-border rounded p-2 flex items-center gap-1"><input type="checkbox" class="if-team" data-name="尹丽丽" data-years="5" data-role="城投分析师" /> 尹丽丽（城投，5y）</label>
+            <label class="border border-border rounded p-2 flex items-center gap-1"><input type="checkbox" class="if-team" data-name="李羽歌" data-years="3" data-role="绿色金融" /> 李羽歌（绿金，3y）</label>
+            <label class="border border-border rounded p-2 flex items-center gap-1"><input type="checkbox" class="if-team" data-name="司浩楠" data-years="3" data-role="财务" /> 司浩楠（财务，3y）</label>
+            <label class="border border-border rounded p-2 flex items-center gap-1"><input type="checkbox" class="if-team" data-name="张志强" data-years="12" data-role="部门总监" /> 张志强（部门总监）</label>
+            <label class="border border-border rounded p-2 flex items-center gap-1"><input type="checkbox" class="if-team" data-name="陈秋萍" data-years="8" data-role="合规" /> 陈秋萍（合规）</label>
+            <label class="border border-border rounded p-2 flex items-center gap-1"><input type="checkbox" class="if-team" data-name="周建华" data-years="15" data-role="评级总监" /> 周建华（评级总监）</label>
+            <label class="border border-border rounded p-2 flex items-center gap-1"><input type="checkbox" class="if-team" data-name="付耿敏" data-years="14" data-role="评级总监" /> 付耿敏（评级总监）</label>
+          </div>
+          <div class="text-[10px] text-muted mt-1">硬约束：组长 ≥ 3 年评级经验 / ≥ 2 人项目组 / 6 年轮换；交易所市场组长须有证券从业登记。</div>
+        </div>
+
+        <div class="mt-3">
+          <label class="text-xs text-muted">采用方法学（多选）</label>
+          <div id="if-method-list" class="mt-1 grid grid-cols-2 gap-1 text-[11px] max-h-32 overflow-y-auto border border-border rounded p-2 bg-white"></div>
+        </div>
+
+        <div id="if-tracking-preview" class="mt-3 text-[10px] text-muted"></div>
+      </fieldset>
+
+      <div id="if-error" class="hidden bg-danger/10 border border-danger/30 rounded p-2 text-xs text-danger"></div>
+    </form>
+  `;
+}
+
+function bindIntakeEvents() {
+  const D = window.MockData;
+  // 主体类别 → 行业级联
+  const kindEl = document.getElementById('if-kind');
+  if (!kindEl) return;
+  kindEl.addEventListener('change', () => {
+    intakeFormState.kind = kindEl.value;
+    refreshIndustry();
+    refreshBondTypes();
+    refreshMethods();
+  });
+
+  document.getElementById('if-do-subject').addEventListener('change', e => {
+    intakeFormState.doSubject = e.target.checked;
+  });
+  document.getElementById('if-do-bond').addEventListener('change', e => {
+    intakeFormState.doBond = e.target.checked;
+    refreshBondPanel();
+  });
+  document.getElementById('if-bond-type').addEventListener('change', refreshGreenPanel);
+  document.getElementById('if-business').addEventListener('change', refreshBusinessHint);
+
+  refreshIndustry();
+  refreshBondTypes();
+  refreshGuarantees();
+  refreshGreenCatalog();
+  refreshGreenAssurers();
+  refreshBondPanel();
+  refreshBusinessHint();
+  refreshMethods();
+}
+
+function refreshIndustry() {
+  const list = MockData.industriesByKind[intakeFormState.kind] || [];
+  const el = document.getElementById('if-industry');
+  el.innerHTML = list.map(i => `<option value="${i.code}">${i.name}</option>`).join('');
+}
+
+function refreshBondTypes() {
+  const list = MockData.bondTypesByKind[intakeFormState.kind] || [];
+  const el = document.getElementById('if-bond-type');
+  el.innerHTML = ['<option value="">请选择...</option>']
+    .concat(list.map(b => `<option value="${b.code}" data-green="${b.green ? 1 : 0}">[${b.category}] ${b.name}</option>`))
+    .join('');
+}
+
+function refreshGuarantees() {
+  const el = document.getElementById('if-guarantee');
+  el.innerHTML = MockData.guaranteeTypes.map(g => `<option value="${g.code}">${g.name}</option>`).join('');
+}
+
+function refreshGreenCatalog() {
+  const el = document.getElementById('if-green-cat');
+  el.innerHTML = ['<option value="">请选择...</option>']
+    .concat(MockData.greenCatalog2021.map(c => `<option value="${c.code}">${c.name}</option>`)).join('');
+}
+
+function refreshGreenAssurers() {
+  const el = document.getElementById('if-green-assurer');
+  el.innerHTML = ['<option value="">请选择...</option>']
+    .concat(MockData.greenAssurers.map(a => `<option value="${a.code}">${a.name}</option>`)).join('');
+}
+
+function refreshBondPanel() {
+  const sec = document.getElementById('if-bond-section');
+  if (intakeFormState.doBond) sec.classList.remove('hidden');
+  else { sec.classList.add('hidden'); document.getElementById('if-green-section').classList.add('hidden'); }
+}
+
+function refreshGreenPanel() {
+  const bondSel = document.getElementById('if-bond-type');
+  const opt = bondSel.options[bondSel.selectedIndex];
+  const isGreen = opt && opt.dataset.green === '1';
+  intakeFormState.bondType = bondSel.value;
+  intakeFormState.isGreen = isGreen;
+  const sec = document.getElementById('if-green-section');
+  if (isGreen && intakeFormState.doBond) sec.classList.remove('hidden');
+  else sec.classList.add('hidden');
+}
+
+function refreshBusinessHint() {
+  const sel = document.getElementById('if-business');
+  intakeFormState.businessType = sel.value;
+  const meta = MockData.businessTypes.find(b => b.code === sel.value);
+  document.getElementById('if-business-hint').textContent = meta ? meta.desc : '';
+}
+
+function refreshMethods() {
+  const kind = intakeFormState.kind;
+  const list = MockData.methodologyVersions.filter(m =>
+    m.kind === kind || m.kind === 'common' || m.kind === 'product'
+  );
+  const el = document.getElementById('if-method-list');
+  if (!el) return;
+  el.innerHTML = list.map(m => `
+    <label class="flex items-center gap-1 hover:bg-bg p-1 rounded cursor-pointer">
+      <input type="checkbox" class="if-method" data-code="${m.code}" data-name="${m.name}" />
+      <span class="num text-[10px] text-muted">${m.code}</span>
+      <span>${m.name}</span>
+    </label>
+  `).join('');
+}
+
+function submitIntakeForm() {
+  const errors = [];
+  const v = id => (document.getElementById(id) || { value: '' }).value.trim();
+  const subject = v('if-subject');
+  const due     = v('if-due');
+  const market  = v('if-market');
+  const industry = v('if-industry');
+
+  if (!subject) errors.push('受评对象必填');
+  if (!due)     errors.push('计划交付日期必填');
+  if (!market)  errors.push('市场类型必填');
+  if (!industry)errors.push('行业 / 区划必填');
+  if (!intakeFormState.doSubject && !intakeFormState.doBond) errors.push('至少勾选一种评级类型（主体 / 债项）');
+
+  // 双评级一致性
+  if (intakeFormState.doBond) {
+    if (!intakeFormState.bondType) errors.push('债项评级须选择债项类型');
+    // 绿债强制鉴证
+    if (intakeFormState.isGreen) {
+      if (!v('if-green-cat'))     errors.push('绿色债券须选择绿色目录条目（GBP 2021 / 人行 2021 版）');
+      if (!v('if-green-assurer')) errors.push('绿色债券须填写第三方鉴证机构（远东《绿色债券评估认证方法》强制要求）');
+    }
+  }
+
+  // 项目组校验
+  const team = Array.from(document.querySelectorAll('.if-team:checked')).map(el => ({
+    name: el.dataset.name, years: parseInt(el.dataset.years), role: el.dataset.role
+  }));
+  if (team.length < 2) errors.push('项目组至少 2 人（《程序指引》第七条）');
+  const leader = team.find(t => t.role === '组长') || team[0];
+  if (leader && leader.years < 3) errors.push('组长必须 ≥ 3 年评级经验（《程序指引》第七条）');
+  // 交易所市场组长须证券从业登记（演示中 ≥ 5 年视为已登记）
+  if (market && market.indexOf('EXG') === 0 && leader && leader.years < 5) {
+    errors.push('交易所市场组长应已完成证券从业人员登记（《程序指引》第七条第二款）');
+  }
+
+  // 方法学
+  const methods = Array.from(document.querySelectorAll('.if-method:checked')).map(el => ({
+    code: el.dataset.code, name: el.dataset.name
+  }));
+  if (methods.length === 0) errors.push('请至少选择一项采用方法学');
+
+  const errEl = document.getElementById('if-error');
+  if (errors.length) {
+    errEl.classList.remove('hidden');
+    errEl.innerHTML = '<strong>无法立项，请修正：</strong><ul class="list-disc list-inside mt-1">' +
+      errors.map(e => '<li>' + e + '</li>').join('') + '</ul>';
+    return;
+  }
+  errEl.classList.add('hidden');
+
+  // 生成项目编号
+  const projects = MockData.projects;
+  const seq = String((projects.length + 1)).padStart(4, '0');
+  const yyyy = new Date().getFullYear();
+  const projId = 'P-' + yyyy + '-' + seq;
+  const docId  = '远东信评（' + yyyy + '）' + String(projects.length + 1).padStart(4, '0') + ' 号';
+
+  // 跟踪计划：按债项期限自动生成
+  const tenor = parseFloat(v('if-tenor')) || 0;
+  let trackingPlan = '';
+  if (tenor > 0) {
+    const startY = new Date(v('if-start') || due).getFullYear() || yyyy;
+    trackingPlan = '跟踪计划：' + Array.from({ length: Math.floor(tenor) }, (_, i) => (startY + i + 1) + ' Q1 定期跟踪').join(' / ');
+  }
+
+  // 写入 projects（演示）
+  const subjectKindMeta = MockData.subjectKinds.find(k => k.code === intakeFormState.kind);
+  const newProj = {
+    id: projId,
+    docId: docId,
+    subject: subject,
+    issuer: v('if-issuer') || subject,
+    client: v('if-client') || subject,
+    kind:    subjectKindMeta ? subjectKindMeta.name : '',
+    industry: industry,
+    market:   market,
+    business: intakeFormState.businessType,
+    ratingTypes: [
+      intakeFormState.doSubject ? '主体评级' : null,
+      intakeFormState.doBond ? '债项评级' : null
+    ].filter(Boolean),
+    bond: intakeFormState.doBond ? {
+      type: intakeFormState.bondType,
+      amount: parseFloat(v('if-amount')) || null,
+      tenor: tenor || null,
+      coupon: parseFloat(v('if-coupon')) || null,
+      repay: v('if-repay'),
+      start: v('if-start'),
+      end: v('if-end'),
+      use: v('if-use'),
+      guarantee: v('if-guarantee'),
+      guarantor: v('if-guarantor'),
+      guarantorGrade: v('if-guarantor-grade')
+    } : null,
+    green: (intakeFormState.doBond && intakeFormState.isGreen) ? {
+      catalog: v('if-green-cat'),
+      assurer: v('if-green-assurer'),
+      depth: v('if-green-level'),
+      grade: v('if-green-grade')
+    } : null,
+    team: team,
+    methods: methods,
+    due: due,
+    stage: '立项',
+    status: '已立项',
+    createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    plannedEnd: due,
+    leadAnalyst: (team[0] && team[0].name) || '',
+    trackingPlan: trackingPlan
+  };
+  // 注入 12 阶段 / 时间轴 / 当前阶段（项目工作台必需）
+  if (typeof MockData.buildStagesForProject === 'function') {
+    newProj.stages = MockData.buildStagesForProject(newProj);
+    newProj.timeline = MockData.buildTimelineForProject(newProj);
+    newProj.currentStage = 'intake';   // 新建项目从"接受委托"开始
+    // 标记前两阶段已完成（立项即代表 接受委托 + 评级准备 启动）
+    if (newProj.stages[0]) { newProj.stages[0].status = 'in-progress'; newProj.stages[0].progress = 30; }
+  }
+  projects.unshift(newProj);
+
+  // 同步注入到 subjects 数据池，确保 subject-rating 页面能查到该主体
+  const subjects = MockData.subjects;
+  let newSubject = null;
+  if (subjects && !subjects.find(s => s.name === newProj.subject)) {
+    const issuerName = (newProj.issuer && newProj.issuer !== newProj.subject) ? newProj.issuer : newProj.subject;
+    const industryNameCalc = (function() {
+      const all = MockData.industriesByKind || {};
+      for (const k of Object.keys(all)) {
+        const hit = (all[k] || []).find(i => i.code === industry);
+        if (hit) return hit.name;
+      }
+      return industry;
+    })();
+    newSubject = {
+      name: newProj.subject,
+      issuer: issuerName,
+      uscc: '—',
+      industry: industry,
+      industryName: industryNameCalc,
+      legalRep: '—',
+      regCapital: 0,
+      establishDate: '—',
+      regAddress: '—',
+      listed: '—',
+      kind: newProj.kind,
+      market: market,
+      publicScore: 0,
+      publicGrade: 'B',
+      marketGrade: '—',
+      fusionGrade: '—',
+      outlook: '稳定',
+      fuseStatus: '正常',
+      fuseReason: '',
+      _projectId: projId,
+      _docId: docId,
+      _placeholder: true
+    };
+    subjects.unshift(newSubject);
+  }
+
+  // 跨页持久化（localStorage），确保导航到 subject-rating 等其他页面时仍可查到
+  if (window.MockDataPersist) {
+    window.MockDataPersist.saveProject(newProj);
+    if (newSubject) window.MockDataPersist.saveSubject(newSubject);
+  }
+
+  closeModal();
+  toast('✓ 项目已创建：' + projId + ' · ' + docId, 'success', 4000);
+  // 触发后续动作提示
+  setTimeout(() => toast('已自动触发：利益冲突筛查 + 公共信用快查 + 防火墙隔离', 'info', 3000), 800);
+  // 刷新表格
+  document.getElementById('app').innerHTML = '';
+  mountLayout('project-intake', renderMain);
+}
+
+function askAIIntake() {
+  const projs = MockData.projects;
+  const cf = MockData.conflictChecks;
+  const ctx = '【在评项目】' + projs.length + ' 项\n【利冲筛查】' + cf.length + ' 项 · 命中 ' + cf.filter(c=>c.hit).length + ' 项\n【近期立项】' + projs.slice(0,3).map(p => '· ' + p.id + ' ' + p.subject + ' · ' + p.ratingType).join('\n');
+  AIAgent.setScene('kb-rag');
+  AIAgent.send('请基于以上立项现状：① 在评项目按状态分布建议（哪些应优先推进）② 利冲命中项目的处置建议 ③ 项目组组建合规校验（≥2 人/组长 ≥3 年/轮换机制）④ 立项时需完成的 6 项动作清单 ⑤ 引用《程序指引》第十二至十五条。', ctx);
+}
+
+mountLayout('project-intake', renderMain);
+</script>
+</body>
+</html>

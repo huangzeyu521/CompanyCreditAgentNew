@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>④ 报告与审核（聚合工作台）· CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== ④ 报告与审核 阶段聚合工作台
+ * 对齐《信用评级业务程序指引》第十八至四十三条
+ * 含：报告撰写 → 三级审核 → 信评委 → 复评 → 报告定稿 → 评级公布与归档
+ * ==================================================================== */
+function renderMain() {
+  const tr = MockData.threeReview;
+  const agenda = MockData.committeeAgenda;
+  const appeals = MockData.appeals;
+  const reports = MockData.reports;
+  return `
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="num text-2xl text-brand-600 font-bold">④</span>
+            报告与审核 · 阶段工作台
+            <span class="text-xs text-muted font-normal ml-2">《信用评级业务程序指引》第十八至四十三条</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            评级业务终段。完成<strong>报告分章节生成（14 节程序指引结构）→ 三级审核（项目组一审 → 部门二审 → 公司三审）→
+            信评委评定（≥ 5 人，2/3 同意）→ 反馈复评（5 工作日内，仅一次）→ 评级总监签字 + 加盖公章 → 多渠道披露 → 资料归档</strong>。
+          </p>
+        </div>
+        <button onclick="askAIReview()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手解读流程</button>
+      </div>
+
+      <!-- 阶段进度条 -->
+      <div class="mt-5">
+        <div class="flex items-center gap-2 text-xs flex-wrap">
+          <span class="text-muted">本阶段流程：</span>
+          ${[
+            ['报告撰写','✓'], ['一审','✓'], ['二审','✓'], ['三审','⏳'], ['信评委','—'], ['复评','—'], ['定稿签字','—'], ['披露归档','—']
+          ].map(([t,s], i, arr) => {
+            const cls = s==='✓' ? 'bg-success/20 text-success' : s==='⏳' ? 'bg-warning/20 text-warning' : 'bg-bg text-muted';
+            return `
+              <span class="flex items-center gap-1">
+                <span class="w-5 h-5 rounded-full ${cls} text-[10px] flex items-center justify-center font-semibold">${s}</span>
+                <span class="text-ink">${t}</span>
+              </span>
+              ${i < arr.length - 1 ? '<span class="text-muted">→</span>' : ''}
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- KPI -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">三审通过</div><div class="num text-2xl font-bold text-success mt-1">${tr.filter(x=>x.verdict.includes('通过')).length}/${tr.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本期信评委议项</div><div class="num text-2xl font-bold text-brand-600 mt-1">${agenda.length}</div></div>
+        <div class="border border-border rounded-md p-3 ${agenda.find(a=>a.publicGrade==='D')?'bg-danger/5':''}"><div class="text-xs text-muted">D 级红线议项</div><div class="num text-2xl font-bold text-danger mt-1">${agenda.filter(a=>a.publicGrade==='D').length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">在办复评</div><div class="num text-2xl font-bold text-warning mt-1">${appeals.filter(a=>a.status==='committee_scheduled').length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已发布报告</div><div class="num text-2xl font-bold text-brand-700 mt-1">${reports.filter(r=>r.status==='published').length}</div></div>
+      </div>
+    </section>
+
+    <!-- 7 个子工作台 -->
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
+      ${[
+        { href:'subject-rating.html', title:'主体评级（五步闭环）',  desc:'目标录入 → 白盒解构 → 跨域翻译 → 熔断校验 → 双轨融合，全流程主体评级工作台', icon:'⭐', kpi:'5 步闭环' },
+        { href:'bond-rating.html',     title:'债项评级',              desc:'对齐《程序指引》第十九条债券评级要素（发行规模 / 期限 / 利率 / 偿还 / 担保）',           icon:'💵', kpi:'债项要素 + PD/LGD' },
+        { href:'report-detail.html',   title:'评级报告（程序指引）',  desc:'14 节完整报告（概述 / 声明 / 正文 / 跟踪 / 附录）· 严格对齐第十八至二十五条',         icon:'📑', kpi:'14 节标准结构' },
+        { href:'three-review.html',    title:'三级审核工作台',        desc:'项目组一审 → 部门二审 → 公司（评级总监）三审 · 后一级监督前一级',                    icon:'✅', kpi:'三级审核留痕' },
+        { href:'committee-agenda.html',title:'信评委议程包',          desc:'5 分钟决策包：评级建议 + 关键证据 + 公共信用 + 同业对比 + 合规提醒',                  icon:'📋', kpi:`${agenda.length} 个议项` },
+        { href:'committee-vote.html',  title:'信评委电子投票',        desc:'≥ 5 委员参会，2/3 同意有效 · 自动校验回避 · U 盾签名',                                icon:'🗳️', kpi:'2/3 同意制' },
+        { href:'appeal-flow.html',     title:'复评流程',              desc:'5 个工作日内召开信评委 · 复评仅限一次，等级为最终',                                   icon:'🔁', kpi:`${appeals.length} 项复评` },
+        { href:'reports.html',         title:'我的报告库',            desc:'全量评级报告归档查询 · 按主体 / 类型 / 等级 / 日期筛选 · CSV 导出',                  icon:'📚', kpi:`${reports.length} 份报告` }
+      ].map(c => `
+        <a href="${c.href}" class="block border border-border rounded-lg p-5 hover:border-brand-300 hover:bg-brand-50/30 hover:shadow-card transition-all">
+          <div class="text-3xl mb-2">${c.icon}</div>
+          <div class="text-base font-semibold text-brand-700">${c.title}</div>
+          <div class="text-xs text-muted leading-snug mt-2">${c.desc}</div>
+          <div class="flex items-center justify-between mt-3 pt-3 border-t border-border">
+            <span class="text-xs text-muted">${c.kpi}</span>
+            <span class="text-xs text-brand-600 hover:underline">进入工作台 →</span>
+          </div>
+        </a>
+      `).join('')}
+    </section>
+
+    <!-- 评级公布与归档（程序指引第三十九至四十三条）-->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          评级公布与归档（程序指引第三十九至四十三条）
+        </h3>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 p-5 text-xs">
+        <div class="border border-border rounded p-3">
+          <div class="font-medium">① 评级总监签字 + 公章</div>
+          <div class="text-muted leading-snug mt-1">评级结果由评级总监核实并签字确认后方可公布；评级报告须加盖公司公章。</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="font-medium">② 多渠道披露</div>
+          <div class="text-muted leading-snug mt-1">公司网站 + 监管部门要求的网站披露 · 上报央行 / 交易商协会 / 证监会 / 交易所 / 银行间市场。</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="font-medium">③ 资料归档</div>
+          <div class="text-muted leading-snug mt-1">原始资料 + 评估文字资料按《档案管理制度》分类整理 · 保密文件单独存档 · 保留 ≥ 15 年。</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="font-medium">④ 合规人员监督</div>
+          <div class="text-muted leading-snug mt-1">合规人员对评级报告出具流程的合规性进行监督；信评委后修改仅限格式调整与财务数据更新。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 阶段流转 -->
+    <section class="flex items-center justify-between bg-bg/40 border border-border rounded-lg p-4">
+      <a href="modeling-stage.html" class="text-xs text-brand-600 hover:underline">← 上一阶段：③ 评级建模</a>
+      <a href="tracking-stage.html" class="text-xs px-4 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700 flex items-center gap-1">
+        下一阶段：⑤ 跟踪评级
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+      </a>
+    </section>
+  `;
+}
+
+function askAIReview() {
+  const tr = MockData.threeReview;
+  const agenda = MockData.committeeAgenda;
+  const ctx = '【报告与审核阶段进度】\n三级审核：' + tr.filter(x=>x.verdict.includes('通过')).length + '/' + tr.length + ' 通过\n本期信评委议项：' + agenda.length + ' 项 · D 级红线：' + agenda.filter(x=>x.publicGrade==='D').length + ' 项';
+  AIAgent.setScene('three-review-diff');
+  AIAgent.send('请基于当前阶段进度：① 待办事项 TOP5 + 优先级 ② 三级审核可能的争议点预警 ③ 信评委议项中的 D 级红线锁定校验 ④ 评级总监签字前的合规检查清单。', ctx);
+}
+
+mountLayout('review-stage', renderMain);
+</script>
+</body>
+</html>

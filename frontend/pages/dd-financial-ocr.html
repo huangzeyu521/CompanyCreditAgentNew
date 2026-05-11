@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>财报 OCR 与三表勾稽 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 财报 OCR + 三表勾稽 + 招股书结构化（FR-B-003 / B-004 / B-005）============== */
+function renderMain() {
+  const fin = MockData.ddFinancial;
+  const balanceRows = fin.balance.map(r => `
+    <tr class="hover:bg-bg">
+      <td class="px-4 py-2 text-xs ${r.item.endsWith('合计')||r.item.endsWith('总计')?'font-semibold':''}">${r.item}</td>
+      <td class="text-xs num text-right pr-2">${fmtNum(r.y2025)}</td>
+      <td class="text-xs num text-right pr-2 text-muted">${fmtNum(r.y2024)}</td>
+      <td class="text-xs num text-right pr-4 text-muted">${fmtNum(r.y2023)}</td>
+    </tr>
+  `).join('');
+  const incomeRows = fin.income.map(r => `
+    <tr class="hover:bg-bg">
+      <td class="px-4 py-2 text-xs ${r.item==='毛利'||r.item==='净利润'?'font-semibold':''}">${r.item}</td>
+      <td class="text-xs num text-right pr-2">${fmtNum(r.y2025)}</td>
+      <td class="text-xs num text-right pr-2 text-muted">${fmtNum(r.y2024)}</td>
+      <td class="text-xs num text-right pr-4 text-muted">${fmtNum(r.y2023)}</td>
+    </tr>
+  `).join('');
+  const cfRows = fin.cashflow.map(r => `
+    <tr class="hover:bg-bg">
+      <td class="px-4 py-2 text-xs">${r.item}</td>
+      <td class="text-xs num text-right pr-2 ${r.y2025<0?'text-danger':''}">${fmtNum(r.y2025)}</td>
+      <td class="text-xs num text-right pr-2 text-muted">${fmtNum(r.y2024)}</td>
+      <td class="text-xs num text-right pr-4 text-muted">${fmtNum(r.y2023)}</td>
+    </tr>
+  `).join('');
+  const checkRows = fin.crossChecks.map(c => `
+    <tr class="hover:bg-bg ${c.ok?'':'bg-danger/5'}">
+      <td class="px-4 py-2 text-xs">${c.rule}</td>
+      <td class="text-xs num text-muted">${c.expected}</td>
+      <td class="text-xs num">${c.actual}</td>
+      <td>${c.ok?'<span class="text-success text-xs">✓ 通过</span>':'<span class="text-danger text-xs">✗ 异常</span>'}</td>
+      <td class="text-xs text-muted">${c.note || '—'}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    ${(function(){
+      const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+      if (!p) {
+        return `<div class="bg-warning/10 border border-warning/30 rounded-md px-4 py-3 mb-4 text-sm text-warning flex items-center gap-2">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 9v2m0 4h.01m-6.93 1h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 17c-.77 1.33.19 3 1.73 3z"/></svg>
+          <strong>未选择项目</strong>：当前财报数据为通用演示，建议从 <a href="project-intake.html" class="text-brand-600 hover:underline font-medium">"我的项目"</a> 进入指定项目，查看该项目的财报。
+        </div>`;
+      }
+      return `<div class="bg-brand-50/60 border border-brand-200 rounded-md px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-2">
+        <div class="text-sm">
+          <span class="text-muted">当前项目：</span>
+          <strong class="text-brand-700">${p.subject}</strong>
+          <span class="text-xs text-muted ml-2">(${p.id} · ${p.industry || '—'})</span>
+        </div>
+        <a href="project-workbench.html?projectId=${p.id}" class="text-xs text-brand-600 hover:underline">← 返回项目工作台</a>
+      </div>`;
+    })()}
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            财报 OCR · 三表勾稽 · 招股书结构化
+            <span class="text-xs text-muted font-normal">FR-B-003 · B-004 · B-005</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            对 PDF / 扫描件 / 图片格式财务报表自动 OCR，抽取资产负债表、利润表、现金流量表与所有者权益变动表的核心字段；
+            自动校验三表勾稽关系，异常预警；招股说明书 / 募集说明书结构化抽取（发行人概况、募投项目、风险因素、特别风险提示等）。
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="askAIFin()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+          <button onclick="reupload()" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700">上传新报告</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">PDF 总页数</div><div class="num text-2xl font-bold text-brand-600 mt-1">${fin.pages}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">OCR 准确率</div><div class="num text-2xl font-bold text-success mt-1">${fin.ocrAccuracy}%</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">勾稽规则</div><div class="num text-2xl font-bold text-brand-700 mt-1">${fin.crossChecks.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">异常项</div><div class="num text-2xl font-bold text-success mt-1">0</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">处理时长</div><div class="num text-2xl font-bold text-brand-600 mt-1">42 s</div></div>
+      </div>
+    </section>
+
+    <!-- 三表 -->
+    <section class="grid grid-cols-3 gap-5 mb-5">
+      <div class="bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border"><h3 class="text-sm font-semibold flex items-center gap-2"><span class="w-1 h-4 bg-brand-600 rounded"></span>资产负债表（万元）</h3></div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2">项目</th>
+            <th class="text-right pr-2 py-2">2025</th>
+            <th class="text-right pr-2 py-2">2024</th>
+            <th class="text-right pr-4 py-2">2023</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border">${balanceRows}</tbody>
+        </table>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border"><h3 class="text-sm font-semibold flex items-center gap-2"><span class="w-1 h-4 bg-brand-600 rounded"></span>利润表（万元）</h3></div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2">项目</th>
+            <th class="text-right pr-2 py-2">2025</th>
+            <th class="text-right pr-2 py-2">2024</th>
+            <th class="text-right pr-4 py-2">2023</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border">${incomeRows}</tbody>
+        </table>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border"><h3 class="text-sm font-semibold flex items-center gap-2"><span class="w-1 h-4 bg-brand-600 rounded"></span>现金流量表（万元）</h3></div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2">项目</th>
+            <th class="text-right pr-2 py-2">2025</th>
+            <th class="text-right pr-2 py-2">2024</th>
+            <th class="text-right pr-4 py-2">2023</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border">${cfRows}</tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 勾稽校验 -->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          三表勾稽校验（FR-B-004）
+        </h3>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2">勾稽规则</th>
+          <th class="py-2">期望值</th>
+          <th class="py-2">实际值</th>
+          <th class="py-2">结果</th>
+          <th class="py-2 pr-4">备注</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">${checkRows}</tbody>
+      </table>
+    </section>
+
+    <!-- 招股书结构化（B5）-->
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          招股 / 募集 / 年报结构化（FR-B-005）
+        </h3>
+      </div>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4">
+        ${[
+          { title:'发行人概况', n:48, src:'招股书 P12-58' },
+          { title:'募投项目',   n:24, src:'招股书 P186-218' },
+          { title:'财务概要',   n:96, src:'招股书 P262-358' },
+          { title:'风险因素',   n:22, src:'招股书 P26-46' },
+          { title:'特别风险提示', n:8, src:'招股书 P3-5' },
+          { title:'关联交易',   n:36, src:'招股书 P158-178' },
+          { title:'股东与股权', n:18, src:'招股书 P98-114' },
+          { title:'用工与劳资', n:14, src:'招股书 P132-148' }
+        ].map(s => `
+          <div class="border border-border rounded p-3 hover:border-brand-300 hover:bg-brand-50/30">
+            <div class="text-sm font-medium">${s.title}</div>
+            <div class="num text-2xl font-bold text-brand-600 mt-1">${s.n}</div>
+            <div class="text-[10px] text-muted">字段已抽取 · ${s.src}</div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function reupload() {
+  openModal({
+    title: '上传新一期财务报告',
+    content: `
+      <div class="space-y-3">
+        <div class="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-brand-300 cursor-pointer">
+          <div class="text-3xl text-muted mb-2">📄</div>
+          <div class="text-sm">点击或拖拽 PDF / 扫描件 / 图片到此处</div>
+          <div class="text-xs text-muted mt-1">支持单份 ≤ 50 页 · OCR 准确率 ≥ 99%</div>
+        </div>
+        <div class="text-xs text-muted">建议格式：原生 PDF（向量文本）；扫描件需 ≥ 200 DPI</div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded hover:bg-bg">取消</button>
+      <button onclick="closeModal();toast('正在 OCR 解析（预计 60s）...','info',2500);" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded hover:bg-brand-700">上传并解析</button>
+    `
+  });
+}
+
+function askAIFin() {
+  const fin = MockData.ddFinancial;
+  const inc = fin.income.find(x=>x.item.includes('营业总收入'))||{y2025:0};
+  const np  = fin.income.find(x=>x.item.includes('净利润'))||{y2025:0};
+  const ctx = '【财报概况】OCR 处理 ' + fin.pages + ' 页 · 准确率 ' + fin.ocrAccuracy + '%\n' +
+              '【关键财务】营收 2025 ' + fmtNum(inc.y2025) + '万 / 净利润 ' + fmtNum(np.y2025) + '万\n' +
+              '【三表勾稽】' + fin.crossChecks.length + ' 项规则 · 异常 ' + fin.crossChecks.filter(c=>!c.ok).length + ' 项';
+  AIAgent.setScene('bacp-explain');
+  AIAgent.send('请基于上述财务数据：① 三表勾稽关键风险点识别（净利润 vs 经营现金流 / 应收账款周转 / 存货周转）② 财务质量诊断（盈利质量 / 现金流质量）③ 与同业的偏离信号 ④ BACP "盈利能力" + "流动性"评分建议得分 ⑤ 引用《工商企业评级方法》。', ctx);
+}
+
+mountLayout('dd-financial-ocr', renderMain);
+</script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>终止评级管理 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 终止评级管理（FR-F-007）============== */
+function renderMain() {
+  const ts = MockData.terminations;
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            终止评级管理
+            <span class="text-xs text-muted font-normal">FR-F-007 · 《信用评级业务终止评级制度》</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            管理评级终止事件、原因、披露与档案。常见情形：委托方主动撤销委托、连续 24 个月无新发行、
+            评级有效期届满未续约、合规事件触发终止。终止须按监管要求披露并归档。
+          </p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <button onclick="newTermination()" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700">+ 新建终止</button>
+          <button onclick="askAITermination()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">🤖 AI 起草终止公告</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本年度终止</div><div class="num text-2xl font-bold text-brand-600 mt-1">${ts.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">委托方撤销</div><div class="num text-2xl font-bold text-warning mt-1">1</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">无新发行</div><div class="num text-2xl font-bold text-warning mt-1">1</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已披露</div><div class="num text-2xl font-bold text-success mt-1">${ts.filter(t=>t.status==='已披露').length}</div></div>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          终止记录
+        </h3>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2">编号</th>
+          <th class="py-2">受评对象</th>
+          <th class="py-2">终止原因</th>
+          <th class="py-2">状态</th>
+          <th class="py-2">解除日期</th>
+          <th class="py-2 pr-4 text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          ${ts.map(t => `
+            <tr class="hover:bg-bg">
+              <td class="px-4 py-2.5 num text-xs">${t.id}</td>
+              <td class="text-sm font-medium">${t.subject}</td>
+              <td class="text-xs text-muted">${t.reason}</td>
+              <td><span class="text-xs px-1.5 py-0.5 rounded bg-success/10 text-success border border-success/30">${t.status}</span></td>
+              <td class="text-xs num text-muted">${t.dischargedAt}</td>
+              <td class="text-right pr-4"><button onclick="viewTermDetail('${t.id}')" class="text-xs text-brand-600 hover:underline">详情 →</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 触发条件 -->
+    <section class="bg-white rounded-lg shadow-card mt-5 p-5">
+      <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        《信用评级业务终止评级制度》触发条件
+      </h3>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+        ${[
+          ['委托方主动撤销委托','委托方书面通知撤销，且未涉及合规违规事项'],
+          ['到期未续约','评级有效期届满后委托方未续约'],
+          ['连续 24 个月无新发行','发行人连续 24 个月无新增债务融资工具发行'],
+          ['受评对象解散 / 破产','受评对象法人主体解散 / 破产清算'],
+          ['评级业务资质终止','本机构相关业务资质被监管暂停或撤销'],
+          ['合规重大违规','受评对象出现重大合规事项不符合继续评级条件'],
+          ['客户拒绝合理尽调','委托方 / 受评对象拒绝配合必要尽调'],
+          ['政策法规变更','政策法规变更导致评级业务无法继续']
+        ].map(([t, d]) => `
+          <div class="border border-border rounded p-3 hover:border-brand-300 hover:bg-brand-50/30">
+            <div class="text-xs font-medium">${t}</div>
+            <div class="text-[10px] text-muted leading-snug mt-1">${d}</div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function newTermination() {
+  openModal({
+    title: '新建评级终止',
+    width: 'max-w-xl',
+    danger: true,
+    content: `
+      <form class="space-y-3 text-sm">
+        <div><label class="text-xs text-muted">受评对象 <span class="text-danger">*</span></label>
+          <input class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm" placeholder="主体名称或 USCC..." />
+        </div>
+        <div><label class="text-xs text-muted">终止原因 <span class="text-danger">*</span></label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm">
+            <option>委托方主动撤销委托</option>
+            <option>到期未续约</option>
+            <option>连续 24 个月无新发行</option>
+            <option>受评对象解散 / 破产</option>
+            <option>合规重大违规</option>
+            <option>其他</option>
+          </select>
+        </div>
+        <div><label class="text-xs text-muted">详细说明</label>
+          <textarea rows="3" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm"></textarea>
+        </div>
+        <div class="text-[11px] text-muted">提交后系统将按监管要求自动生成披露公告，并通知交易所、银行间、证监会、交易商协会等渠道。</div>
+      </form>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded">取消</button>
+      <button onclick="closeModal();toast('终止已立案，披露公告生成中','danger');" class="px-3 py-1.5 text-sm bg-danger text-white rounded">提交</button>
+    `
+  });
+}
+
+function viewTermDetail(id) {
+  const t = MockData.terminations.find(x => x.id === id);
+  if (!t) return;
+  openModal({
+    title: '终止详情：' + t.id,
+    width: 'max-w-md',
+    content: `
+      <div class="space-y-2 text-sm">
+        <div><span class="text-muted">主体：</span>${t.subject}</div>
+        <div><span class="text-muted">原因：</span>${t.reason}</div>
+        <div><span class="text-muted">状态：</span>${t.status}</div>
+        <div><span class="text-muted">解除：</span><span class="num">${t.dischargedAt}</span></div>
+        <div><span class="text-muted">披露渠道：</span>交易所 / 银行间 / 公司官网</div>
+        <div><span class="text-muted">归档：</span>已归档至档案管理系统（保留 ≥ 15 年）</div>
+      </div>
+    `,
+    footer: '<button onclick="closeModal()" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">关闭</button>'
+  });
+}
+
+function askAITermination() {
+  AIAgent.setScene('regulatory-submit');
+  const ts = MockData.terminations || [];
+  const list = ts.map(t => `· ${t.id} · ${t.subject} · 原因=${t.reason} · 解除=${t.dischargedAt} · 状态=${t.status}`).join('\n');
+  AIAgent.send(
+    '请按《信用评级业务终止评级制度》起草本次"终止评级公告"模板与外部披露要点，确保符合监管 5 个工作日内披露要求。\n' +
+    '当前年度终止记录：\n' + (list || '（暂无）') + '\n\n' +
+    '要求：\n' +
+    '1. 公告标题（含主体全称 + 终止类别）；\n' +
+    '2. 公告正文：包含"终止原因 + 终止前最近一次评级 + 风险提示 + 后续披露安排"四要素；\n' +
+    '3. 监管报送清单（人民银行 / 证监会 / 银行间市场交易商协会 / 信用中国 平台映射）；\n' +
+    '4. 内部归档清单：终止决议 / 委托终止函 / 客户沟通记录 / 披露回执；\n' +
+    '5. 给出"风险提示"标准措辞模板（200 字内，正式监管口吻）。'
+  );
+}
+mountLayout('termination', renderMain);
+window.askAITermination = askAITermination;
+</script>
+</body>
+</html>

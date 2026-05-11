@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BACP 智能评分 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== BACP 智能评分（FR-C-002）============== */
+function renderMain() {
+  const factors = MockData.bacpFactors;
+  const composite = MockData.bacpComposite;
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    ${(function(){
+      const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+      if (!p) {
+        return `<div class="bg-warning/10 border border-warning/30 rounded-md px-4 py-3 mb-4 text-sm text-warning flex items-center gap-2">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 9v2m0 4h.01m-6.93 1h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 17c-.77 1.33.19 3 1.73 3z"/></svg>
+          <strong>未选择项目</strong>：当前数据为通用演示，建议从 <a href="project-intake.html" class="text-brand-600 hover:underline font-medium">"我的项目"</a> 进入指定项目，查看该项目的数据。
+        </div>`;
+      }
+      return `<div class="bg-brand-50/60 border border-brand-200 rounded-md px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-2">
+        <div class="text-sm">
+          <span class="text-muted">当前项目：</span>
+          <strong class="text-brand-700">${p.subject}</strong>
+          <span class="text-xs text-muted ml-2">(${p.id} · ${p.industry || '—'})</span>
+        </div>
+        <a href="project-workbench.html?projectId=${p.id}" class="text-xs text-brand-600 hover:underline">← 返回项目工作台</a>
+      </div>`;
+    })()}
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            BACP 智能评分
+            <span class="text-xs text-muted font-normal">FR-C-002 · 基本信用状况评价</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            按"工商企业评级方法 V03"——一级要素 4 项（业务状况 30% / 盈利能力 25% / 偿付能力 25% / 流动性 20%），
+            每项下设二级指标，按 8 档阈值（1-8 分）打分；线性加权汇总。分析师可调整并备注。
+          </p>
+        </div>
+        <button onclick="askAIBACP()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+
+      <!-- 综合得分 + 个体等级 -->
+      <div class="grid grid-cols-3 gap-5 mt-5">
+        <div class="border border-border rounded-lg p-4 text-center">
+          <div class="text-xs text-muted">BACP 综合得分</div>
+          <div class="num text-4xl font-bold text-brand-600 mt-2">${composite}</div>
+          <div class="text-xs text-muted mt-1">满分 8 分</div>
+        </div>
+        <div class="border border-border rounded-lg p-4 text-center">
+          <div class="text-xs text-muted">映射个体等级（小写九级）</div>
+          <div class="num text-4xl font-bold text-success mt-2">aa</div>
+          <div class="text-xs text-muted mt-1">不考虑外部支持下偿债能力很强</div>
+        </div>
+        <div class="border border-border rounded-lg p-4 text-center">
+          <div class="text-xs text-muted">行业 P50 对标</div>
+          <div class="num text-4xl font-bold text-brand-700 mt-2">6.4</div>
+          <div class="text-xs text-muted mt-1">钢铁制造（C31）· 45 / 65</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 一级 + 二级 -->
+    ${factors.map((f, i) => `
+      <section class="bg-white rounded-lg shadow-card p-5 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            ${f.level1}
+            <span class="text-xs text-muted font-normal">权重 ${(f.weight*100).toFixed(0)}% · 得分 ${f.score.toFixed(1)}</span>
+          </h3>
+          <div class="text-xs">
+            一级加权得分：<span class="num font-semibold ${f.score>=7?'text-success':f.score>=5?'text-warning':'text-danger'}">${(f.score * f.weight).toFixed(2)}</span>
+          </div>
+        </div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2">二级指标</th>
+            <th class="py-2">权重</th>
+            <th class="py-2">阈值（目标）</th>
+            <th class="py-2">实际值</th>
+            <th class="py-2 text-center">8 档评分</th>
+            <th class="py-2">数据来源</th>
+            <th class="py-2 pr-4 text-right">分析师调整</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border">
+            ${f.l2.map((x, j) => `
+              <tr class="hover:bg-bg">
+                <td class="px-4 py-2 text-sm">${x.name}</td>
+                <td class="text-xs num">${(x.weight*100).toFixed(0)}%</td>
+                <td class="text-xs text-muted">${x.target}</td>
+                <td class="text-xs num">${x.actual}</td>
+                <td class="text-center">
+                  <span class="num font-semibold ${x.value>=6?'text-success':x.value>=4?'text-warning':'text-danger'}">${x.value}</span>
+                  <span class="text-xs text-muted">/ 8</span>
+                </td>
+                <td class="text-xs text-muted">${x.source}</td>
+                <td class="text-right pr-4">
+                  <button onclick="adjustScore(${i},${j})" class="text-xs text-brand-600 hover:underline">调整 →</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </section>
+    `).join('')}
+
+    <!-- 操作 -->
+    <section class="bg-white rounded-lg shadow-card p-5 mt-4 flex items-center justify-between">
+      <div class="text-xs text-muted">
+        BACP 评分计算耗时 <span class="num">28 s</span> · 模型版本 <span class="num">FECR-GS-V03</span> · 评级师可在每项二级指标右侧调整并备注
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="toast('已保存为草稿（V2）','success')" class="text-xs px-3 py-1.5 border border-border rounded hover:bg-bg">保存草稿</button>
+        <a href="am-adjustment.html" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded hover:bg-brand-700">下一步：AM 调整 →</a>
+      </div>
+    </section>
+  `;
+}
+
+function adjustScore(i, j) {
+  const f = MockData.bacpFactors[i];
+  const x = f.l2[j];
+  openModal({
+    title: '调整二级指标评分：' + x.name,
+    width: 'max-w-md',
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="text-xs text-muted">阈值：${x.target} · 实际：${x.actual}</div>
+        <div><label class="text-xs text-muted">系统建议（8 档）</label>
+          <div class="num text-3xl font-bold text-brand-600 mt-1">${x.value} <span class="text-base text-muted">/ 8</span></div>
+        </div>
+        <div><label class="text-xs text-muted">分析师调整为</label>
+          <input type="number" value="${x.value}" min="1" max="8" step="1" class="mt-1 block w-32 px-3 py-2 border border-border rounded-md text-sm" />
+        </div>
+        <div><label class="text-xs text-muted">调整理由 <span class="text-danger">*</span></label>
+          <textarea rows="3" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm" placeholder="请说明调整依据，建议引用方法学条款 / 数据来源..."></textarea>
+        </div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded hover:bg-bg">取消</button>
+      <button onclick="closeModal();toast('调整已留痕（含修改前后差异 + 备注）','success');" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">保存</button>
+    `
+  });
+}
+
+function askAIBACP() {
+  // 注入 BACP 评分上下文，让 AI 替评级师做"逐要素诊断 + 优化建议"
+  const factors = MockData.bacpFactors;
+  const composite = MockData.bacpComposite;
+  const ctx = '【当前主体】南京钢铁联合有限公司（钢铁制造 C31）\n' +
+              '【BACP 综合得分】' + composite + '/8 → 个体等级 aa\n' +
+              '【4 一级要素】\n' +
+              factors.map(f => '· ' + f.level1 + '（权重' + (f.weight*100).toFixed(0) + '%）：' + f.score.toFixed(1) + '/8 · 二级指标 ' + f.l2.length + ' 项').join('\n') + '\n' +
+              '【行业 P50 基准】6.4 / 8（钢铁制造行业中位）';
+  AIAgent.setScene('bacp-explain');
+  AIAgent.send('请基于上述当前 BACP 评分明细，对该主体逐要素诊断：① 识别得分异常的二级指标（与行业 P50 偏离 ≥ 1 子级）② 给出每个一级要素的优化建议 ③ 推荐最终个体信用等级 ④ 引用《信用评级方法规则》对应章节。', ctx);
+}
+
+mountLayout('bacp-scoring', renderMain);
+</script>
+</body>
+</html>

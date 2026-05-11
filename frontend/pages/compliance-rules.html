@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>合规规则引擎 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 合规规则引擎（FR-F-005）============== */
+function renderMain() {
+  const rules = MockData.complianceRules;
+  const blockCnt = rules.filter(r => r.action === 'block').length;
+  const warnCnt  = rules.filter(r => r.action === 'warn').length;
+  const rows = rules.map(r => `
+    <tr class="hover:bg-bg ${r.kind.includes('红线')?'bg-danger/5':''}">
+      <td class="px-4 py-2.5 num text-[11px]">${r.id}</td>
+      <td class="text-sm font-medium">${r.name}</td>
+      <td><span class="text-xs px-1.5 py-0.5 rounded ${r.kind.includes('红线')?'bg-danger/10 text-danger border border-danger/30':'bg-warning/10 text-warning border border-warning/30'}">${r.kind}</span></td>
+      <td class="text-xs text-muted leading-snug max-w-md font-mono">${r.triggers}</td>
+      <td><span class="text-xs px-1.5 py-0.5 rounded ${r.action==='block'?'bg-danger/10 text-danger':'bg-warning/10 text-warning'}">${r.action==='block'?'拦截':'警告'}</span></td>
+      <td class="text-xs">${r.enabled?'<span class="text-success">✓ 启用</span>':'<span class="text-muted">禁用</span>'}</td>
+      <td class="text-right pr-4">
+        <button onclick="testRule('${r.id}')" class="text-xs text-brand-600 hover:underline">测试 →</button>
+      </td>
+    </tr>
+  `).join('');
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            合规规则引擎
+            <span class="text-xs text-muted font-normal">FR-F-005 · 7×24 守门员</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            配置化的合规规则引擎，覆盖GB/T 45255-2025红线、级别承诺禁用、利益冲突、三级审核完整性、信评委 2/3 同意、
+            实地调研触发、公共信用更新频次、报告引用可溯源、保密义务等 ${rules.length} 条规则。
+          </p>
+        </div>
+        <button onclick="askAIRules()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">规则总数</div><div class="num text-2xl font-bold text-brand-600 mt-1">${rules.length}</div></div>
+        <div class="border border-border rounded-md p-3 bg-danger/5"><div class="text-xs text-danger">硬拦截规则</div><div class="num text-2xl font-bold text-danger mt-1">${blockCnt}</div></div>
+        <div class="border border-border rounded-md p-3 bg-warning/5"><div class="text-xs text-warning">软警告规则</div><div class="num text-2xl font-bold text-warning mt-1">${warnCnt}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本月命中</div><div class="num text-2xl font-bold text-brand-700 mt-1">14</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已豁免</div><div class="num text-2xl font-bold text-success mt-1">2</div></div>
+      </div>
+    </section>
+
+    <!-- 红线说明 -->
+    <section class="bg-danger/5 border-2 border-danger/40 rounded-lg p-5 mb-5">
+      <div class="text-base font-bold text-danger mb-2">🚨 红线规则（不可豁免）</div>
+      <div class="grid grid-cols-3 gap-4 text-xs leading-relaxed">
+        <div class="border border-danger/30 bg-white rounded p-3">
+          <div class="font-medium text-danger">RULE-001 D 级 ⊥ A 级</div>
+          <div class="text-muted mt-1">公共信用 D 级 → 行业评价不得评为 A 级</div>
+          <div class="text-[10px] text-muted mt-1">GB/T 45255-2025</div>
+        </div>
+        <div class="border border-danger/30 bg-white rounded p-3">
+          <div class="font-medium text-danger">RULE-002 级别承诺禁用</div>
+          <div class="text-muted mt-1">"承诺级别 / 保证级别"等关键词</div>
+          <div class="text-[10px] text-muted mt-1">《信用评级业务程序指引》</div>
+        </div>
+        <div class="border border-danger/30 bg-white rounded p-3">
+          <div class="font-medium text-danger">RULE-003 费率与级别脱钩</div>
+          <div class="text-muted mt-1">"按级别收费"等关键词</div>
+          <div class="text-[10px] text-muted mt-1">央行监督要求</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 规则清单 -->
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          规则清单（${rules.length}）
+        </h3>
+        <button onclick="newRule()" class="text-xs px-3 py-1 bg-brand-600 text-white rounded hover:bg-brand-700">+ 新增规则</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2">编号</th>
+          <th class="py-2">规则名称</th>
+          <th class="py-2">类别</th>
+          <th class="py-2">触发条件（DSL）</th>
+          <th class="py-2">动作</th>
+          <th class="py-2">状态</th>
+          <th class="py-2 pr-4 text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">${rows}</tbody>
+      </table>
+    </section>
+  `;
+}
+
+function testRule(id) {
+  const r = MockData.complianceRules.find(x => x.id === id);
+  if (!r) return;
+  openModal({
+    title: '规则测试 · ' + r.name,
+    width: 'max-w-xl',
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="text-xs text-muted">触发条件</div>
+        <div class="font-mono text-xs bg-bg/60 border border-border rounded p-3">${r.triggers}</div>
+        <div class="text-xs text-muted">测试输入（伪样例）</div>
+        <textarea rows="4" class="w-full px-3 py-2 border border-border rounded text-sm font-mono">{
+  "subject": "演示主体",
+  "publicGrade": "D",
+  "marketGrade": "A"
+}</textarea>
+        <div class="border border-danger/30 bg-danger/5 rounded p-3 text-xs">
+          <div class="text-danger font-semibold">命中 ✗</div>
+          <div class="text-ink/85 mt-1">公共信用 D 级 + 市场化 A 级，触发 RULE-001 红线，本次操作将被拦截。</div>
+        </div>
+      </div>
+    `,
+    footer: '<button onclick="closeModal()" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">关闭</button>'
+  });
+}
+
+function newRule() { toast('请联系系统管理员添加新规则', 'info'); }
+
+function askAIRules() {
+  AIAgent.setScene('kb-rag');
+  const rules = (window.MockData && MockData.complianceRules) || [];
+  const red = rules.filter(r => r.level === '红线' || r.level === 'red');
+  const soft = rules.filter(r => r.level === '软警告' || r.level === 'soft');
+  const summary = '红线规则 ' + red.length + ' 条 / 软警告 ' + soft.length + ' 条\n' +
+    rules.slice(0, 8).map(r => '· [' + r.level + '] ' + r.code + ' · ' + r.name + ' · 命中处置：' + (r.action || '—')).join('\n');
+  AIAgent.send(
+    '请基于本平台当前合规规则集，给出"评级师面对红线触发时的标准 SOP + 豁免审批条件 + 历史命中分析"三段式建议。\n' +
+    '当前规则集（节选）：\n' + summary + '\n\n' +
+    '要求：\n' +
+    '1. 红线触发 SOP：从触发到处置的 5 步流程（含责任人 / 时限）；\n' +
+    '2. 豁免审批：哪几类规则允许豁免，三签字条件具体是什么；\n' +
+    '3. 命中频率 TOP3 的规则及其根因分类（数据 / 流程 / 人员）；\n' +
+    '4. 给规则管理员的 3 条规则迭代建议；\n' +
+    '5. 引用《信用评级业务程序指引》《信用评审委员会制度》具体条款。',
+    summary
+  );
+}
+
+mountLayout('compliance-rules', renderMain);
+</script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>信评委电子投票 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 信评委电子投票（FR-D-006）============== */
+let votes = {};
+function renderMain() {
+  const members = MockData.committeeMembers;
+  const agenda  = MockData.committeeAgenda[0];
+  const present = members.filter(m => !m.recused).length;
+  const voted   = Object.keys(votes).length;
+  const passVotes  = Object.values(votes).filter(v => v === 'approve').length;
+  const need = Math.ceil(present * 2 / 3);
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            信评委电子投票
+            <span class="text-xs text-muted font-normal">FR-D-006 · 议项 ${agenda.id}</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            按《信用评审委员会制度》：≥ 5 名委员参会，2/3 以上同意有效；
+            自动校验回避机制（不得对自己参与项目投票）；签字采用 U 盾 / 证书签名。
+          </p>
+        </div>
+      </div>
+
+      <!-- 议项摘要 -->
+      <div class="mt-4 grid grid-cols-5 gap-3 text-sm">
+        <div class="col-span-2"><span class="text-xs text-muted">议项主体</span><div class="font-medium">${agenda.subject}</div><div class="text-xs text-muted">${agenda.type}</div></div>
+        <div><span class="text-xs text-muted">拟定主体等级</span><div class="num text-xl font-bold text-brand-600 mt-1">${agenda.proposedGrade}</div></div>
+        <div><span class="text-xs text-muted">公共信用</span><div class="mt-1">${publicGradeBadge(agenda.publicGrade, { large:true })}</div></div>
+        <div><span class="text-xs text-muted">风险</span><div class="text-xl font-bold ${agenda.risk==='高'?'text-danger':agenda.risk==='中'?'text-warning':'text-success'} mt-1">${agenda.risk}</div></div>
+      </div>
+    </section>
+
+    <!-- 投票面板 -->
+    <section class="grid grid-cols-3 gap-5 mb-5">
+      <div class="col-span-2 bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            委员投票（${voted} / ${present} 已投）
+          </h3>
+          <span class="text-xs text-muted">通过门槛：${need} 票（2/3）</span>
+        </div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2">委员</th>
+            <th class="py-2">角色</th>
+            <th class="py-2">部门</th>
+            <th class="py-2">回避</th>
+            <th class="py-2 text-center">投票</th>
+            <th class="py-2 text-center">U 盾签名</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border" id="vote-rows">
+            ${members.map(m => {
+              const v = votes[m.id];
+              return `
+                <tr class="hover:bg-bg ${m.recused?'opacity-60':''}">
+                  <td class="px-4 py-2.5 text-sm">${m.name}</td>
+                  <td class="text-xs">${m.role}</td>
+                  <td class="text-xs text-muted">${m.dept}</td>
+                  <td class="text-xs ${m.recused?'text-warning font-medium':'text-success'}">${m.recused?'已回避':'参会'}</td>
+                  <td class="text-center">
+                    ${m.recused
+                      ? '<span class="text-xs text-muted">—</span>'
+                      : `<div class="flex gap-1 justify-center">
+                          <button onclick="vote('${m.id}','approve',this)" class="px-2 py-0.5 text-[11px] ${v==='approve'?'bg-success text-white':'border border-success/30 text-success hover:bg-success/10'} rounded">通过</button>
+                          <button onclick="vote('${m.id}','approve_with','${m.id}')" class="px-2 py-0.5 text-[11px] ${v==='approve_with'?'bg-brand-600 text-white':'border border-brand-200 text-brand-700 hover:bg-brand-50'} rounded">通过+保留</button>
+                          <button onclick="vote('${m.id}','reject',this)" class="px-2 py-0.5 text-[11px] ${v==='reject'?'bg-danger text-white':'border border-danger/30 text-danger hover:bg-danger/10'} rounded">驳回</button>
+                          <button onclick="vote('${m.id}','revote',this)" class="px-2 py-0.5 text-[11px] ${v==='revote'?'bg-warning text-white':'border border-warning/30 text-warning hover:bg-warning/10'} rounded">复议</button>
+                        </div>`}
+                  </td>
+                  <td class="text-center text-xs">${m.signed ? '<span class="text-success">✓ 已签</span>' : v ? '<button onclick="signVote(\''+m.id+'\')" class="text-brand-600 hover:underline">签字</button>' : '<span class="text-muted">—</span>'}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 投票汇总 -->
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          投票实时汇总
+        </h3>
+        <div class="space-y-3">
+          <div class="border border-border rounded p-3">
+            <div class="text-xs text-muted">参会 / 回避 / 应到</div>
+            <div class="num text-lg font-semibold mt-1">${present} / ${members.length-present} / ${members.length}</div>
+          </div>
+          <div class="border border-border rounded p-3 ${present>=5?'bg-success/5 border-success/30':'bg-warning/5 border-warning/30'}">
+            <div class="text-xs ${present>=5?'text-success':'text-warning'}">人数门槛（≥ 5）</div>
+            <div class="text-lg font-bold ${present>=5?'text-success':'text-warning'} mt-1">${present>=5?'✓ 满足':'✗ 不足'}</div>
+          </div>
+          <div class="border border-border rounded p-3">
+            <div class="text-xs text-muted">通过票数</div>
+            <div class="num text-lg font-semibold text-success mt-1">${passVotes} / ${need}</div>
+            <div class="h-1 mt-2 bg-bg rounded overflow-hidden"><div class="h-full bg-success" style="width:${Math.min(passVotes/need*100,100)}%"></div></div>
+          </div>
+          <div class="border border-border rounded p-3">
+            <div class="text-xs text-muted">当前结论</div>
+            <div class="text-sm font-bold ${passVotes>=need?'text-success':'text-warning'} mt-1">
+              ${passVotes>=need?'✓ 通过（2/3 以上同意）':'⏳ 等待更多投票'}
+            </div>
+          </div>
+          <button onclick="finalizeVote()" class="w-full text-xs py-2 bg-brand-600 text-white rounded hover:bg-brand-700 ${passVotes<need?'opacity-50 cursor-not-allowed':''}" ${passVotes<need?'disabled':''}>
+            主席宣布表决结果
+          </button>
+        </div>
+        <div class="mt-3 pt-3 border-t border-border text-[11px] text-muted leading-relaxed">
+          所有投票将写入审计链；委员签字采用 U 盾 / 证书签名（《信评委制度》要求）。
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function vote(memberId, decision, btn) {
+  votes[memberId] = decision;
+  // 重新渲染
+  document.getElementById('app').innerHTML = '';
+  mountLayout('committee-vote', renderMain);
+}
+
+function signVote(memberId) {
+  toast('正在调用 U 盾签名...', 'info', 1000);
+  setTimeout(() => {
+    const m = MockData.committeeMembers.find(x => x.id === memberId);
+    if (m) m.signed = true;
+    document.getElementById('app').innerHTML = '';
+    mountLayout('committee-vote', renderMain);
+    toast('签字完成（数字签名已写入审计链）', 'success');
+  }, 1000);
+}
+
+function finalizeVote() {
+  confirmDialog({
+    title: '宣布表决结果？',
+    content: '<p class="text-sm">主席将正式宣布信评委表决结果，并在审计日志中留痕。</p>',
+    okText: '宣布', cancelText: '取消'
+  }).then(ok => {
+    if (ok) {
+      toast('信评委已通过 · 进入报告定稿流程', 'success');
+      setTimeout(() => location.href = 'three-review.html', 800);
+    }
+  });
+}
+
+mountLayout('committee-vote', renderMain);
+</script>
+</body>
+</html>

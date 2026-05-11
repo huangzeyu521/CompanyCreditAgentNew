@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>主体评级（五步闭环）· CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css" />
+</head>
+<body>
+
+<div id="app"></div>
+
+<script src="../assets/js/mock-data.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/layout.js"></script>
+<script>
+/* ===== 当前步骤状态 —— 严格对齐《产品设计文档 V1.0》5.5 节五步闭环工作流 ===== */
+const STEPS = [
+  { n: 1, label: '目标录入与全域抓取', desc: '主体识别 + 隐私计算合规抓取' },
+  { n: 2, label: '白盒化解构',          desc: '基于 GB/T 23794-2023 逆向归因' },
+  { n: 3, label: '跨域翻译 + 图谱穿透', desc: 'PD/LGD 映射 + 关联传染性预警' },
+  { n: 4, label: '熔断校验',            desc: '刚性底线核查 / D级一票否决' },
+  { n: 5, label: '双轨融合报告',        desc: '人工复判 + 一键生成 + 审计归档' }
+];
+let currentStep = 1;
+let selectedSubject = null;
+
+// 从 URL ? step= 与 ?subject= 中初始化
+(function initFromUrl(){
+  const p = new URLSearchParams(location.search);
+  const s = parseInt(p.get('step'));
+  if (s >= 1 && s <= 5) currentStep = s;
+  const subj = p.get('subject');
+  if (subj) selectedSubject = MockData.subjects.find(x => x.name === subj) || MockData.subjects[0];
+})();
+
+function renderMain() {
+  return `
+    <!-- 顶部步骤指示器 -->
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-lg font-semibold flex items-center gap-2">
+          <span class="w-1 h-5 bg-brand-600 rounded"></span>
+          主体评级 · 五步闭环
+        </h1>
+        <div class="flex items-center gap-2">
+          <button onclick="saveDraft()" class="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-bg">保存草稿</button>
+          <button onclick="exitFlow()" class="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-bg">退出</button>
+        </div>
+      </div>
+      ${renderStepIndicator()}
+    </section>
+
+    <!-- 主区域：根据 currentStep 切换 -->
+    <section id="step-content" class="space-y-5">
+      ${renderStepContent()}
+    </section>
+
+    <!-- 底部操作 -->
+    <section class="mt-5 flex items-center justify-between bg-white rounded-lg shadow-card p-4">
+      <div class="text-xs text-muted">
+        当前步骤：<span class="font-medium text-brand-600">第 ${currentStep} 步 · ${STEPS[currentStep-1].label}</span>
+        <span class="mx-2">·</span>
+        进度 <span class="num">${Math.round(currentStep / 5 * 100)}%</span>
+      </div>
+      <div class="flex items-center gap-2">
+        ${currentStep > 1 ? '<button onclick="prevStep()" class="text-xs px-4 py-1.5 border border-border rounded-md hover:bg-bg">← 上一步</button>' : ''}
+        ${currentStep < 5 ? '<button onclick="nextStep()" class="text-xs px-4 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700">下一步 →</button>' : '<button onclick="finishFlow()" class="text-xs px-4 py-1.5 bg-success text-white rounded-md hover:bg-green-700">✓ 完成并生成报告</button>'}
+      </div>
+    </section>
+  `;
+}
+
+function renderStepIndicator() {
+  return `
+    <div class="step-indicator">
+      ${STEPS.map(s => {
+        const active = s.n === currentStep;
+        const done = s.n < currentStep;
+        const cls = done ? 'bg-success text-white border-success'
+                  : active ? 'bg-brand-600 text-white border-brand-600 ring-4 ring-brand-100'
+                  : 'bg-white text-muted border-border';
+        const labelCls = (done || active) ? 'text-ink font-medium' : 'text-muted';
+        return `
+          <div class="step flex flex-col items-center text-center" style="flex:1">
+            <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold ${cls}">
+              ${done ? '✓' : s.n}
+            </div>
+            <div class="mt-2 text-xs ${labelCls}">${s.label}</div>
+            <div class="text-[10px] text-muted mt-0.5">${s.desc}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderStepContent() {
+  switch(currentStep) {
+    case 1: return renderStep1();
+    case 2: return renderStep2();
+    case 3: return renderStep3();
+    case 4: return renderStep4();
+    case 5: return renderStep5();
+  }
+}
+
+/* ============== Step 1：目标录入与机制化全域抓取（无感启动） ============== */
+/* 文档 5.5 节：分析师录入主体即触发隐私计算+合规API秒级抓取全量公共信用 */
+function renderStep1() {
+  const opts = MockData.subjects.map(s => `<option value="${s.uscc}" ${selectedSubject && selectedSubject.uscc === s.uscc ? 'selected' : ''}>${s.name} · ${s.uscc}</option>`).join('');
+  const sel = selectedSubject || {};
+  // 仅在已选择主体时展示采集进度（无感启动）
+  const collectionDone = !!sel.uscc;
+  return `
+    <div class="bg-white rounded-lg shadow-card p-6">
+      <h2 class="text-base font-semibold mb-2">第一步 · 目标录入与机制化全域抓取（无感启动）</h2>
+      <p class="text-sm text-muted mb-5">输入被评主体的名称或统一社会信用代码，智能体将<span class="text-brand-600 font-medium">自动通过隐私计算"安全融合舱"</span>秒级调取全量公共信用信息（无需被评企业任何线上交互）。</p>
+
+      <div class="grid grid-cols-2 gap-5">
+        <div>
+          <label class="text-xs text-muted">被评主体（名称或统一社会信用代码）<span class="text-danger">*</span></label>
+          <select id="subject-select" onchange="onSubjectChange(this.value)"
+            class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">
+            <option value="">请选择或搜索主体...</option>
+            ${opts}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-muted">评级类型<span class="text-danger">*</span></label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">
+            <option>主体首次评级</option>
+            <option selected>主体跟踪评级</option>
+            <option>主体复评</option>
+            <option>债项评级</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-muted">评级周期</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">
+            <option>年度</option>
+            <option selected>跟踪评级</option>
+            <option>不定期</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-muted">数据快照时点</label>
+          <input type="datetime-local" value="2026-04-28T14:32"
+            class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" />
+        </div>
+        <div class="col-span-2">
+          <label class="text-xs text-muted">任务备注</label>
+          <textarea rows="2" class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" placeholder="选填，记录评级背景、客户要求等..."></textarea>
+        </div>
+      </div>
+
+      ${sel.uscc ? `
+      <div class="mt-5 p-4 border border-brand-100 bg-brand-50 rounded-md">
+        <div class="text-xs text-brand-700 font-semibold mb-2 flex items-center gap-2">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>
+          已识别主体 · 基础信息
+        </div>
+        <div class="grid grid-cols-4 gap-3 text-xs">
+          <div><div class="text-muted">主体名称</div><div class="font-medium mt-1">${sel.name}</div></div>
+          <div><div class="text-muted">统一社会信用代码</div><div class="num font-medium mt-1">${sel.uscc}</div></div>
+          <div><div class="text-muted">行业</div><div class="font-medium mt-1">${sel.industry}</div></div>
+          <div><div class="text-muted">法定代表人</div><div class="font-medium mt-1">${sel.legalRep || '—'}</div></div>
+        </div>
+      </div>
+      ` : '<div class="mt-5 p-4 border border-dashed border-border rounded-md text-center text-xs text-muted">请先选择主体以触发"无感启动"全域抓取</div>'}
+
+      <!-- 全域抓取实时进度（无感启动 · 后台并发） -->
+      <div class="mt-5 p-4 border border-border rounded-md bg-bg">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-semibold flex items-center gap-2">
+            <span class="w-1 h-3 bg-brand-600 rounded"></span>
+            全域机制化采集 · ${MockData.dataSources.length} 个数据源 ${collectionDone ? '<span class="text-success">[采集已完成]</span>' : '<span class="text-muted">[等待主体选择]</span>'}
+          </div>
+          <span class="text-[10px] text-muted">隐私计算"安全融合舱"：FL · MPC · TEE · DP</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+          ${MockData.dataSources.map(ds => {
+            const statusMap = {
+              success: { color:'success', icon:'OK',  label:'完成' },
+              partial: { color:'warning', icon:'!',   label:'部分' },
+              failed:  { color:'danger',  icon:'X',   label:'失败' }
+            };
+            const s = collectionDone ? (statusMap[ds.status] || statusMap.success) : { color:'muted', icon:'…', label:'待采' };
+            return `
+              <div class="border border-border bg-white rounded p-2 text-xs hover:border-brand-300 transition-colors">
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-muted text-[10px] truncate" title="${ds.name}">${ds.name}</span>
+                </div>
+                <div class="flex items-center justify-between mt-1 text-[10px]">
+                  <span class="text-${s.color} font-medium">${s.icon} ${s.label}</span>
+                  ${collectionDone ? `<span class="num text-muted">${ds.fields}字段</span>` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+        ${collectionDone ? `
+        <div class="mt-3 pt-3 border-t border-border flex items-center justify-between text-xs">
+          <div class="text-success font-medium flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>
+            采集完成 · 共获取 <span class="num">${MockData.dataSources.reduce((a,b)=>a+b.fields,0)}</span> 个字段 · 0 次原始政务数据出域
+          </div>
+          <span class="text-[10px] text-muted">血缘追踪 + 审计日志已生成 · 点击"下一步"进入白盒化解构</span>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+/* ============== Step 2：白盒化社会信用逆向解构（原因剖析） ============== */
+/* 文档 5.5 节：基于 GB/T 23794-2023 国标"逆向拆分"打分逻辑，明确列出具体扣分事件 */
+function renderStep2() {
+  const sel = selectedSubject || MockData.subjects[0];
+  const totalDeducted = MockData.attribution.reduce((a,b) => a + (b.score < 0 ? -b.score : 0), 0);
+  return `
+    <div class="bg-white rounded-lg shadow-card p-6">
+      <h2 class="text-base font-semibold mb-2">第二步 · 白盒化社会信用逆向解构（原因剖析）</h2>
+      <p class="text-sm text-muted mb-5">基于 <span class="font-medium text-brand-600">GB/T 23794-2023</span> 国标，将笼统的等级结论<span class="font-medium">逆向拆解</span>为可解释、可追溯、可争辩的事件级归因清单。</p>
+
+      <!-- 公共信用概览 -->
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="border border-border rounded p-4">
+          <div class="text-xs text-muted">公共信用评分</div>
+          <div class="num text-3xl font-bold ${sel.publicScore >= 800 ? 'text-success' : (sel.publicScore >= 650 ? 'text-warning' : 'text-danger')} mt-1">${sel.publicScore}<span class="text-base text-muted">/1000</span></div>
+          <div class="text-xs text-muted mt-1">基准 1000 · 失分 ${1000 - sel.publicScore}</div>
+        </div>
+        <div class="border border-border rounded p-4">
+          <div class="text-xs text-muted">公共信用等级</div>
+          <div class="mt-1">${gradeBadge(sel.publicGrade, { large: true })}</div>
+          <div class="text-xs text-muted mt-2">A/B/C/D 四级（国办发〔2026〕8号）</div>
+        </div>
+        <div class="border border-border rounded p-4">
+          <div class="text-xs text-muted">行业 P50 对标</div>
+          <div class="num text-3xl font-bold text-brand-600 mt-1">825</div>
+          <div class="text-xs text-muted">${sel.industry}（45 / 65）</div>
+        </div>
+      </div>
+
+      <!-- 4 维度雷达 -->
+      <div class="grid grid-cols-3 gap-5 mb-6">
+        <div class="col-span-2 border border-border rounded-lg p-4">
+          <div class="text-sm font-semibold mb-2 flex items-center justify-between">
+            <span>四维评分雷达 · 主体 vs 行业平均</span>
+            <span class="flex items-center gap-3 text-xs">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 bg-brand-500 rounded-full"></span>本主体</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 bg-warning rounded-full"></span>行业平均</span>
+            </span>
+          </div>
+          <div id="radar" class="h-72"></div>
+        </div>
+        <div class="border border-border rounded-lg p-4">
+          <div class="text-sm font-semibold mb-3">指标拆分 · 4 大一级指标</div>
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-xs"><span>履约意愿（15%）</span><span class="num">270 / 300</span></div>
+              <div class="h-1.5 bg-bg rounded mt-1"><div class="h-full bg-brand-500 rounded" style="width:90%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs"><span>履约能力（20%）</span><span class="num">250 / 300</span></div>
+              <div class="h-1.5 bg-bg rounded mt-1"><div class="h-full bg-brand-500 rounded" style="width:83%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs"><span class="text-warning font-medium">履约行为（40%）</span><span class="num text-warning">200 / 400</span></div>
+              <div class="h-1.5 bg-bg rounded mt-1"><div class="h-full bg-warning rounded" style="width:50%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs"><span>ESG 专项（25%）</span><span class="num">220 / 250</span></div>
+              <div class="h-1.5 bg-bg rounded mt-1"><div class="h-full bg-success rounded" style="width:88%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 白盒化归因清单 -->
+      <div class="mb-2">
+        <div class="text-sm font-semibold mb-2 flex items-center justify-between">
+          <span class="flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            白盒化归因清单（${MockData.attribution.length} 项 · 共扣 <span class="text-danger num">${totalDeducted}</span> 分）
+          </span>
+          <button onclick="toast('归因清单已导出','success')" class="text-xs text-brand-600 hover:underline">导出归因清单</button>
+        </div>
+        <div class="overflow-x-auto border border-border rounded-lg">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="th text-left">
+                <th class="px-4 py-2.5">维度</th>
+                <th class="py-2.5">扣分项</th>
+                <th class="py-2.5">原始事件</th>
+                <th class="py-2.5 text-center">扣分</th>
+                <th class="py-2.5">法律依据</th>
+                <th class="py-2.5">修复路径</th>
+                <th class="py-2.5 pr-4 text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">
+              ${MockData.attribution.map((a, i) => `
+                <tr class="hover:bg-bg">
+                  <td class="px-4 py-3"><span class="text-xs px-1.5 py-0.5 rounded ${
+                    a.dimension === 'ESG' ? 'bg-success/10 text-success border border-success/30' :
+                    a.dimension === '履约行为' ? 'bg-warning/10 text-warning border border-warning/30' :
+                    'bg-brand-100 text-brand-700 border border-brand-200'
+                  }">${a.dimension}</span></td>
+                  <td>${a.item}</td>
+                  <td class="text-xs text-muted">${a.event}</td>
+                  <td class="num text-center font-semibold ${a.score < 0 ? 'text-danger' : 'text-success'}">${a.score > 0 ? '+' : ''}${a.score}</td>
+                  <td class="text-xs text-muted">${a.legalBasis}</td>
+                  <td class="text-xs text-muted">${a.repairPath}</td>
+                  <td class="text-center"><button class="text-xs text-brand-600 hover:underline" onclick="openTrace(${i})">追溯</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============== Step 3：跨域语系智能翻译 + 知识图谱穿透（核心决策辅助） ============== */
+/* 文档 5.5 节：充当"双轨翻译官"，通过知识图谱穿透实控人/子公司，输出业务结论与 PD/LGD 调整因子 */
+function renderStep3() {
+  const sel = selectedSubject || MockData.subjects[0];
+  const g = MockData.graph;
+  return `
+    <div class="bg-white rounded-lg shadow-card p-6 mb-5">
+      <h2 class="text-base font-semibold mb-2">第三步 · 跨域语系智能翻译（核心决策辅助）</h2>
+      <p class="text-sm text-muted mb-5">充当"双轨翻译官"——将社会合规扣分翻译为偿债 <span class="font-medium">PD/LGD</span> 调整因子。基于 200+ 标准化规则库 + 行业敏感系数；分析师可对每条做"采纳/否决/修改"。</p>
+
+      <div class="space-y-3">
+        ${MockData.translations.map((t, i) => `
+          <div class="border border-border rounded-lg p-4 grid grid-cols-12 gap-3 items-center hover:bg-bg" id="tr-${i}">
+            <div class="col-span-3">
+              <div class="text-[10px] text-muted">原始事件</div>
+              <div class="text-sm font-medium">${t.event}</div>
+              <div class="text-xs ${t.eventScore < 0 ? 'text-danger' : 'text-success'} num">${t.eventScore > 0 ? '+' : ''}${t.eventScore} 分</div>
+            </div>
+            <div class="col-span-2">
+              <div class="text-[10px] text-muted">行业系数</div>
+              <div class="text-sm">${t.industryFactor}</div>
+            </div>
+            <div class="col-span-3">
+              <div class="text-[10px] text-muted">推演风险</div>
+              <div class="text-sm">PD <span class="num ${t.pdDelta.startsWith('-') ? 'text-success' : 'text-danger'}">${t.pdDelta}</span> · LGD <span class="num ${t.lgdDelta.startsWith('-') ? 'text-success' : 'text-muted'}">${t.lgdDelta}</span></div>
+              <div class="text-[10px] text-muted">${t.cashflowImpact}</div>
+            </div>
+            <div class="col-span-2">
+              <div class="text-[10px] text-muted">建议动作</div>
+              <div class="text-sm font-medium ${t.actionType === 'down' ? 'text-warning' : t.actionType === 'up' ? 'text-success' : 'text-brand-600'}">${t.action}</div>
+            </div>
+            <div class="col-span-2 flex items-center gap-1 justify-end">
+              <button onclick="setDecision(${i},'accepted',this)" class="px-2.5 py-1 text-xs bg-success text-white rounded">采纳 ✓</button>
+              <button onclick="setDecision(${i},'rejected',this)" class="px-2.5 py-1 text-xs border border-border text-muted rounded hover:bg-bg">否决</button>
+              <button onclick="setDecision(${i},'modified',this)" class="px-2.5 py-1 text-xs border border-border text-muted rounded hover:bg-bg">修改</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- 知识图谱穿透：文档 5.5 节明确为第三步的一部分 -->
+    <div class="bg-white rounded-lg shadow-card p-6">
+      <h2 class="text-base font-semibold mb-2">同步执行 · 异构企业知识图谱 · 关联传染性风险穿透</h2>
+      <p class="text-xs text-muted mb-5">采用 R<sub>risk</sub> = f(C<sub>individual</sub>, C<sub>corporate</sub>, G<sub>relationship</sub>)，向上穿透实控人，向下穿透产业链，横向穿透担保/中介链。</p>
+
+      <div class="grid grid-cols-3 gap-5">
+        <div class="col-span-2 border border-border rounded-lg p-3 bg-bg">
+          <div id="graph" class="h-96"></div>
+        </div>
+        <div class="space-y-3">
+          <div class="border border-border rounded-lg p-4">
+            <div class="text-sm font-semibold mb-3">关联节点摘要</div>
+            <ul class="text-xs space-y-2">
+              <li class="flex items-center gap-2"><span class="w-2 h-2 bg-success rounded-full"></span>实控人 张某某 · A级（920分）</li>
+              <li class="flex items-center gap-2"><span class="w-2 h-2 bg-brand-500 rounded-full"></span>母公司 XX集团 · B级</li>
+              <li class="flex items-center gap-2"><span class="w-2 h-2 bg-success rounded-full"></span>子公司1 · A级</li>
+              <li class="flex items-center gap-2"><span class="w-2 h-2 bg-warning rounded-full"></span>子公司2 · B级</li>
+              <li class="flex items-center gap-2"><span class="w-2 h-2 bg-danger rounded-full"></span>担保方 XX物流 · <span class="text-danger font-medium">C级</span></li>
+              <li class="flex items-center gap-2"><span class="w-2 h-2 bg-warning rounded-full"></span>中介机构 · TSC3</li>
+            </ul>
+          </div>
+          <div class="p-4 rounded-lg bg-warning/10 border border-warning/30">
+            <div class="text-xs font-semibold text-warning">中等关联风险</div>
+            <div class="text-xs text-muted mt-1 leading-snug">担保链中存在 C 级节点 "XX物流"。建议在融合等级中计入 <span class="font-medium">-0.5 子级</span>。</div>
+            <div class="mt-2 text-xs num"><span class="text-muted">R_total =</span> <span class="font-semibold">${g.rTotal}</span></div>
+          </div>
+          <div class="p-4 rounded-lg bg-brand-50 border border-brand-200">
+            <div class="text-xs font-semibold text-brand-700">穿透结论</div>
+            <div class="text-xs text-muted mt-1 leading-snug">未识别出"异常注销""恶意逃废债""家族关系隐性传染"等高危信号。可进入熔断校验。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============== Step 4：刚性底线核查与自动熔断拦截（合规防线） ============== */
+/* 文档 5.5 节：分析师拟定初步评级 → 智能体合规守门员实时校验 → D级一票否决从底层锁死 A级输出 */
+function renderStep4() {
+  const sel = selectedSubject || MockData.subjects[0];
+  const isFused = sel.fuseStatus === 'restricted';
+  // 文档 6.7.1 列出 10 大 D 级触发条件
+  const triggers = [
+    { name: '严重失信主体名单',     hit: isFused, desc: '被任一部门认定为"严重失信主体"' },
+    { name: '失信被执行人',         hit: false,   desc: '被列入"失信被执行人"且未结案' },
+    { name: '刑事处罚',             hit: false,   desc: '法人/企业被刑事处罚' },
+    { name: '安全生产重特大事故',   hit: false,   desc: '发生重大及以上等级安全生产事故' },
+    { name: '环保严重违规',         hit: false,   desc: '导致重大环境影响的违规' },
+    { name: '恶意欠薪',             hit: false,   desc: '被认定"涉嫌拒不支付劳动报酬罪"' },
+    { name: '税务严重失信',         hit: false,   desc: '被列入"税务严重失信主体名单"' },
+    { name: '海关严重违法失信',     hit: false,   desc: '被海关认定为"失信企业"' },
+    { name: '反避税认定',           hit: false,   desc: '"无合理商业目的"且金额重大' },
+    { name: '地方专项黑名单',       hit: false,   desc: '在国务院授权的地方/行业专项名单中' }
+  ];
+  const hitCount = triggers.filter(t => t.hit).length;
+  return `
+    ${isFused ? `
+      <div class="bg-danger/10 border-2 border-danger rounded-lg p-5 mb-5 breathe">
+        <div class="flex items-start gap-3">
+          <span class="text-3xl">🚨</span>
+          <div class="flex-1">
+            <div class="text-base font-bold text-danger">⚠ D 级熔断警报 · 一票否决已生效</div>
+            <div class="text-sm text-ink/90 mt-1">
+              本主体在公共信用综合评价中被判定为 <span class="font-bold">D 级（严重失信）</span>，
+              触发原因：<span class="font-medium">${sel.fuseReason || '严重失信主体名单'}</span>
+            </div>
+            <div class="mt-2 text-xs text-muted">
+              依据：国办发〔2026〕8号文第六条 — "公共信用综合评价为'D'级的，行业信用评价不得评为'A'级"
+            </div>
+            <div class="mt-3 flex items-center gap-2 flex-wrap">
+              <span class="text-xs px-2 py-1 bg-danger text-white rounded">系统级：is_restricted = TRUE</span>
+              <span class="text-xs px-2 py-1 bg-danger text-white rounded">服务级：API_SERVICE_CUTOFF</span>
+              <span class="text-xs px-2 py-1 bg-danger text-white rounded">报告级：BLOCK_REPORT_GEN</span>
+              <span class="text-xs px-2 py-1 bg-danger text-white rounded">UI级：禁用 A 级以上等级选项</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    ` : `
+      <div class="bg-success/5 border-l-4 border-success rounded-lg p-4 mb-5 flex items-center gap-3">
+        <svg class="w-7 h-7 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="flex-1">
+          <div class="text-base font-semibold text-success">✓ D 级熔断校验：未触发</div>
+          <div class="text-xs text-muted">本主体当前未触发任何 D 级熔断条件，可正常进入下一步报告生成。</div>
+        </div>
+        <div class="text-xs text-muted">最近校验：<span class="num">2026-04-28 14:32</span></div>
+      </div>
+    `}
+
+    <div class="bg-white rounded-lg shadow-card p-6">
+      <h2 class="text-base font-semibold mb-2">第四步 · 刚性底线核查（合规防线）</h2>
+      <p class="text-sm text-muted mb-5">依据《产品设计文档》6.7 节，<span class="font-medium">10 大 D 级熔断触发条件</span>实时监听；任一触发即一票否决，市场化评级强制 ≤ B 级。</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        ${triggers.map(t => `
+          <div class="border ${t.hit ? 'border-danger bg-danger/5' : 'border-border'} rounded-md p-3">
+            <div class="flex items-center gap-2">
+              <span class="text-base">${t.hit ? '🔴' : '✓'}</span>
+              <div class="flex-1">
+                <div class="text-sm font-medium ${t.hit ? 'text-danger' : 'text-ink'}">${t.name}</div>
+                <div class="text-[11px] text-muted mt-0.5">${t.desc}</div>
+              </div>
+              <span class="text-xs px-1.5 py-0.5 rounded ${t.hit ? 'bg-danger text-white' : 'bg-success/10 text-success border border-success/30'}">${t.hit ? '已触发' : '未触发'}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="mt-5 p-4 bg-bg border border-border rounded-md text-xs">
+        <div class="font-semibold mb-2">合规守门员核查结论</div>
+        <div class="text-muted">
+          ${hitCount > 0
+            ? `本主体触发 <span class="text-danger font-medium">${hitCount}</span> 项 D 级熔断条件，依据国办发〔2026〕8号文，市场化评级<span class="text-danger font-medium">不得评为 A 级</span>，强制 ≤ B 级。`
+            : '本主体未触发任何 D 级熔断条件，可进入下一步"双轨融合"报告生成流程。'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============== Step 5：人工复判 + "双轨融合"报告一键生成（商业交付） ============== */
+/* 文档 5.5 节：分析师定稿 → 自动生成报告 + 自动植入合规声明 + 自动归档审计日志 */
+/* 文档 6.4.1 通道一规则：D 级公共信用 → 强制 ≤ B 级（只能选 BBB- 以下） */
+function renderStep5() {
+  const sel = selectedSubject || MockData.subjects[0];
+  const isFused = sel.fuseStatus === 'restricted';
+
+  // 完整的四等十级（市场化等级）
+  const FULL_GRADES = ['AAA','AA+','AA','AA-','A+','A','A-','BBB+','BBB','BBB-','BB+','BB','BB-','B+','B','B-','CCC','CC','C','D'];
+  // D 级公共信用熔断时，可选范围限制为"≤ B 级"（即 BBB+ 以下；A/AA/AAA 严禁）
+  const RESTRICTED_GRADES = ['BBB','BBB-','BB+','BB','BB-','B+','B','B-','CCC','CC','C','D'];
+  const availableGrades = isFused ? RESTRICTED_GRADES : FULL_GRADES;
+  // 如果原 fusionGrade 在受限范围外，强制降到 B
+  let defaultGrade = sel.fusionGrade;
+  if (isFused && !RESTRICTED_GRADES.includes(defaultGrade)) defaultGrade = 'B';
+
+  return `
+    <div class="bg-white rounded-lg shadow-card p-6 mb-5">
+      <h2 class="text-base font-semibold mb-2">第五步 · 人工复判 + "双轨融合"报告一键生成（商业交付）</h2>
+      <p class="text-sm text-muted mb-5">分析师在 <span class="font-medium text-brand-600">完整保留独立专业判断权</span>的前提下，定稿融合等级；系统将自动植入双轨融合声明 + 自动归档审计日志。</p>
+
+      <!-- 三等级对比卡 -->
+      <div class="grid grid-cols-3 gap-4 mb-5">
+        <div class="border border-border rounded-lg p-4 text-center">
+          <div class="text-xs text-muted mb-1">远东原始等级</div>
+          <div class="text-2xl font-bold text-brand-700 num">${sel.marketGrade || '—'}</div>
+        </div>
+        <div class="border border-border rounded-lg p-4 text-center">
+          <div class="text-xs text-muted mb-1">公共信用等级</div>
+          <div class="mt-1">${gradeBadge(sel.publicGrade, { large: true })}</div>
+        </div>
+        <div class="border-2 border-gold rounded-lg p-4 text-center bg-gradient-to-br from-yellow-50 to-amber-100 glow-gold">
+          <div class="text-xs text-gold font-semibold mb-1">★ 双轨融合最终等级 ★</div>
+          <div class="text-3xl font-bold text-gold num">${defaultGrade}</div>
+        </div>
+      </div>
+
+      ${isFused ? `
+      <div class="mb-4 p-3 bg-danger/5 border border-danger/30 rounded-md text-xs">
+        <div class="text-danger font-semibold mb-1">⚠ D 级熔断锁定生效</div>
+        <div class="text-muted">依据国办发〔2026〕8号文 + 6.4.1 通道一规则：本主体公共信用为 D 级，市场化评级<span class="text-danger font-medium">强制 ≤ B 级</span>，仅可在 BBB+ 以下子级中选择。豁免须产品总监 + 法务总监 + 客户合规官三人联合签署。</div>
+      </div>
+      ` : ''}
+
+      <!-- 表单区 -->
+      <div class="grid grid-cols-2 gap-5">
+        <div>
+          <label class="text-xs text-muted">最终融合等级（分析师可调整）<span class="text-danger">*</span></label>
+          <select id="finalGrade"
+            class="mt-1 block w-full px-3 py-2 border ${isFused ? 'border-danger/40' : 'border-border'} rounded-md focus:outline-none focus:border-accent text-sm">
+            ${availableGrades.map(grade => `<option ${grade === defaultGrade ? 'selected' : ''}>${grade}</option>`).join('')}
+          </select>
+          <div class="text-[10px] ${isFused ? 'text-danger' : 'text-muted'} mt-1">
+            ${isFused ? '⚠ A 级及以上选项已被系统从底层禁用 · 不可恢复' : '可在四等十级 AAA-D 范围内选择'}
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-muted">评级展望</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">
+            <option ${sel.outlook === '正面' ? 'selected' : ''}>正面</option>
+            <option ${sel.outlook === '稳定' ? 'selected' : ''}>稳定</option>
+            <option ${sel.outlook === '负面' ? 'selected' : ''}>负面</option>
+            <option>列入观察</option>
+          </select>
+        </div>
+        <div class="col-span-2">
+          <label class="text-xs text-muted">评级理由</label>
+          <textarea rows="3" class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">综合考虑远东市场化评级方法论的核心五要素与公共信用 ${sel.publicGrade} 级所反映的扣分事件，并通过本智能体的跨域风险翻译映射为相应的 PD/LGD 调整因子。${isFused ? '本主体公共信用为 D 级，依据国办发〔2026〕8号文强制锁定 ≤ B 级。' : ''}最终融合等级为 ${defaultGrade}。</textarea>
+        </div>
+      </div>
+
+      <!-- 双轨融合声明预告 -->
+      <div class="mt-6 p-4 bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-gold rounded-lg">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-lg bg-gold flex items-center justify-center text-white font-bold flex-shrink-0">★</div>
+          <div>
+            <div class="text-sm font-semibold text-gold">将自动植入"双轨融合标准化声明"</div>
+            <div class="text-xs text-ink/80 mt-1 leading-relaxed">"本评级已机制化融合公共（社会）信用评价的过程与结果，严格遵循国办发〔2026〕8号文'支持征信机构、信用评级机构将公共信用评价结果纳入市场化信用评价指标体系'的顶层设计..."</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 报告模板选择 -->
+      <div class="mt-5">
+        <label class="text-xs text-muted">报告模板</label>
+        <div class="mt-1 grid grid-cols-3 gap-3">
+          <label class="border border-brand-200 bg-brand-50 rounded p-3 cursor-pointer flex items-center gap-2">
+            <input type="radio" name="tmpl" checked class="text-brand-600" />
+            <div class="flex-1">
+              <div class="text-sm font-medium">主体评级标准模板（12 章）</div>
+              <div class="text-[10px] text-muted">含双轨融合声明 · 完整 12 章结构</div>
+            </div>
+          </label>
+          <label class="border border-border rounded p-3 cursor-pointer flex items-center gap-2">
+            <input type="radio" name="tmpl" class="text-brand-600" />
+            <div class="flex-1">
+              <div class="text-sm font-medium">跟踪评级简报模板</div>
+              <div class="text-[10px] text-muted">仅展示变动归因</div>
+            </div>
+          </label>
+          <label class="border border-border rounded p-3 cursor-pointer flex items-center gap-2">
+            <input type="radio" name="tmpl" class="text-brand-600" />
+            <div class="flex-1">
+              <div class="text-sm font-medium">监管报送模板</div>
+              <div class="text-[10px] text-muted">监管口径专用</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============== 工具函数 ============== */
+function onSubjectChange(uscc) {
+  selectedSubject = MockData.subjects.find(s => s.uscc === uscc);
+  document.getElementById('step-content').innerHTML = renderStepContent();
+  initCharts();
+}
+function nextStep() {
+  if (currentStep === 1 && !selectedSubject) {
+    toast('请先选择被评主体以触发"无感启动"全域抓取', 'warning');
+    return;
+  }
+  if (currentStep < 5) {
+    currentStep++;
+    refreshStep();
+    // 进入第 2 步白盒解构时提示一次"已完成 GB/T 23794 量化拆解"
+    if (currentStep === 2) toast('GB/T 23794-2023 国标白盒化解构完成', 'success', 1500);
+    if (currentStep === 3) toast('跨域翻译规则匹配 + 知识图谱穿透中...', 'info', 1500);
+    if (currentStep === 4) toast('刚性底线 10 大熔断条件实时核查中...', 'info', 1500);
+  }
+}
+function prevStep() {
+  if (currentStep > 1) { currentStep--; refreshStep(); }
+}
+function refreshStep() {
+  document.getElementById('app').innerHTML = '';
+  mountLayout('subject-rating', renderMain);
+  initCharts();
+}
+function simulateCollection() {
+  toast('正在通过隐私计算"安全融合舱"调取数据...', 'info', 1500);
+}
+function setDecision(i, decision, btn) {
+  const row = document.getElementById('tr-' + i);
+  if (!row) return;
+  const btns = row.querySelectorAll('button');
+  btns.forEach(b => { b.className = 'px-2.5 py-1 text-xs border border-border text-muted rounded hover:bg-bg'; });
+  const colorMap = { accepted:'bg-success', rejected:'bg-danger', modified:'bg-warning' };
+  btn.className = `px-2.5 py-1 text-xs ${colorMap[decision]} text-white rounded`;
+  toast(decision === 'accepted' ? '已采纳' : (decision === 'rejected' ? '已否决（请填写理由）' : '请输入修改后的值'), 'info');
+}
+function openTrace(i) {
+  const a = MockData.attribution[i];
+  openModal({
+    title: '事件追溯：' + a.item,
+    content: `
+      <div class="space-y-2 text-sm">
+        <div><span class="text-muted w-24 inline-block">原始事件：</span>${a.event}</div>
+        <div><span class="text-muted w-24 inline-block">事件时间：</span><span class="num">${a.eventDate}</span></div>
+        <div><span class="text-muted w-24 inline-block">扣分：</span><span class="num text-danger">${a.score}</span></div>
+        <div><span class="text-muted w-24 inline-block">法律依据：</span>${a.legalBasis}</div>
+        <div><span class="text-muted w-24 inline-block">修复路径：</span>${a.repairPath}</div>
+        <div class="pt-2 border-t border-border">
+          <div class="text-xs text-muted">数据来源：信用中国 / 全国信用信息共享平台</div>
+          <div class="text-xs text-muted">采集时间：<span class="num">2026-04-28 02:14</span></div>
+          <div class="text-xs text-muted">审计哈希：<span class="num text-xs">0xb12...e8f9</span></div>
+        </div>
+      </div>
+    `
+  });
+}
+function saveDraft() { toast('草稿已保存', 'success'); }
+function exitFlow() {
+  confirmDialog({
+    title: '退出当前评级流程?',
+    content: '<p>当前进度将自动保存为草稿，您可稍后从"我的报告库"恢复。</p>',
+    okText: '确认退出', cancelText: '继续编辑'
+  }).then(ok => {
+    if (ok) location.href = 'workbench.html';
+  });
+}
+function finishFlow() {
+  toast('正在生成"双轨融合"评级报告...', 'success', 1200);
+  setTimeout(() => location.href = 'report-detail.html?id=R-NEW-' + Date.now(), 1300);
+}
+function initCharts() {
+  // Step 2 渲染白盒解构：4 维度雷达
+  if (currentStep === 2) {
+    const el = document.getElementById('radar');
+    if (el) {
+      const r = echarts.init(el);
+      r.setOption({
+        tooltip: {},
+        radar: {
+          indicator: [
+            { name: '履约意愿', max: 100 }, { name: '履约能力', max: 100 },
+            { name: '履约行为', max: 100 }, { name: 'ESG 专项', max: 100 }
+          ],
+          splitArea: { areaStyle: { color: ['#F8FAFC','#FFFFFF'] } },
+          axisName: { color: '#1E293B', fontSize: 12 }
+        },
+        series: [{
+          type: 'radar',
+          data: [
+            { value: [90,83,50,88], name: '本主体', itemStyle:{color:'#2E74B5'}, areaStyle:{color:'rgba(46,116,181,0.18)'} },
+            { value: [82,75,78,70], name: '行业平均', itemStyle:{color:'#F59E0B'}, areaStyle:{color:'rgba(245,158,11,0.10)'}, lineStyle:{type:'dashed'} }
+          ]
+        }]
+      });
+      window.addEventListener('resize', () => r.resize());
+    }
+  }
+  // Step 3 渲染知识图谱穿透：力图
+  if (currentStep === 3) {
+    const el = document.getElementById('graph');
+    if (el) {
+      const g = echarts.init(el);
+      const data = MockData.graph;
+      g.setOption({
+        tooltip: {},
+        series: [{
+          type: 'graph',
+          layout: 'force',
+          symbolSize: 50,
+          roam: false,
+          label: { show: true, color: '#1E293B', fontSize: 11 },
+          edgeSymbol: ['circle','arrow'],
+          edgeSymbolSize: [3, 8],
+          force: { repulsion: 600, edgeLength: 110 },
+          data: data.nodes.map(n => ({
+            ...n,
+            itemStyle: { color: n.color },
+            label: { color: n.textColor || '#1E293B' }
+          })),
+          links: data.links.map(l => ({
+            source: l.source, target: l.target,
+            lineStyle: l.danger ? { color:'#DC2626', width:2 } : (l.warning ? { color:'#F59E0B', type:'dashed' } : {}),
+            label: { show: !!l.label, formatter: l.label, fontSize: 9, color: l.danger ? '#DC2626' : (l.warning ? '#F59E0B' : '#64748B') }
+          }))
+        }]
+      });
+      window.addEventListener('resize', () => g.resize());
+    }
+  }
+}
+
+mountLayout('subject-rating', renderMain);
+initCharts();
+</script>
+</body>
+</html>

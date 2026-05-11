@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>双轨融合评级报告 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css" />
+</head>
+<body class="bg-bg">
+
+<!-- 报告详情页采用独立布局：顶部 Header + 元数据条 + 左侧 TOC + 主区域 -->
+<div id="app"></div>
+
+<script src="../assets/js/mock-data.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/layout.js"></script>
+<script>
+
+const reportId = new URLSearchParams(location.search).get('id') || 'R-20260428-001';
+const report = MockData.reports.find(r => r.id === reportId) || MockData.reports[0];
+const subject = MockData.subjects.find(s => s.name === report.subject) || MockData.subjects[0];
+
+document.title = `${subject.name} · ${report.type}评级报告 · CCASCEA`;
+
+document.getElementById('app').innerHTML = `
+  <!-- 顶部 Header -->
+  <header class="bg-white border-b border-border sticky top-0 z-30 no-print">
+    <div class="px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-2 text-sm">
+        <a href="workbench.html" class="w-7 h-7 rounded bg-brand-600 flex items-center justify-center text-white">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/></svg>
+        </a>
+        <a href="workbench.html" class="text-muted hover:text-brand-600">工作台</a>
+        <svg class="w-3 h-3 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9 5l7 7-7 7"/></svg>
+        <a href="reports.html" class="text-muted hover:text-brand-600">我的报告库</a>
+        <svg class="w-3 h-3 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9 5l7 7-7 7"/></svg>
+        <span class="text-ink font-medium">${subject.name} · ${report.type}评级报告</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="toast('已开始导出 PDF','success')" class="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-bg flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+          导出 PDF
+        </button>
+        <button onclick="toast('已开始导出 Excel 附录','success')" class="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-bg flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path stroke-linecap="round" d="M9 9l6 6M9 15l6-6"/></svg>
+          导出 Excel
+        </button>
+        <button onclick="toast('授权链接已复制','success')" class="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-bg">分享</button>
+        <button onclick="location.href='audit-log.html'" class="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-bg">审计追溯</button>
+        <button onclick="window.print()" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700">打印</button>
+      </div>
+    </div>
+    <div class="px-6 py-2 bg-brand-50 border-t border-border flex items-center gap-4 text-xs text-muted flex-wrap">
+      <div>报告编号：<span class="num text-ink">${report.id}</span></div>
+      <div class="w-px h-3 bg-border"></div>
+      <div>评级类型：<span class="text-ink">${report.type}</span></div>
+      <div class="w-px h-3 bg-border"></div>
+      <div class="flex items-center gap-2">评级结果：${gradeBadge(report.market)} ${gradeBadge(report.public)} ${gradeBadge(report.fusion, { withFuse: report.status === 'fused' })}</div>
+      <div class="w-px h-3 bg-border"></div>
+      <div>数据快照：<span class="num text-ink">${report.updatedAt}</span></div>
+      <div class="w-px h-3 bg-border"></div>
+      <div>状态：<span class="${report.status === 'fused' ? 'text-danger' : 'text-success'} font-medium">${report.status === 'fused' ? '🚨 D级熔断' : '✅ 已发布'}</span></div>
+      <div class="ml-auto text-[10px]">由 CCASCEA · V1.0 协助生成</div>
+    </div>
+  </header>
+
+  <div class="flex max-w-[1480px] mx-auto">
+    <!-- 左侧 TOC -->
+    <aside class="w-56 border-r border-border bg-white py-4 sticky top-[5.75rem] self-start max-h-[calc(100vh-5.75rem)] overflow-auto no-print flex-shrink-0">
+      <div class="px-4 text-[11px] font-semibold text-muted tracking-widest mb-2">报告章节</div>
+      <nav class="text-sm" id="toc">
+        <a href="#sec-1" class="toc-active flex items-center justify-between py-2 cursor-pointer"><span><span class="num text-xs text-muted mr-1">01</span>封面与摘要</span></a>
+        <a href="#sec-2" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">02</span>评级观点</span></a>
+        <a href="#sec-3" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">03</span>行业与区域</span></a>
+        <a href="#sec-4" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">04</span>主体基本情况</span></a>
+        <a href="#sec-5" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">05</span>治理与管理</span></a>
+        <a href="#sec-6" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">06</span>业务与经营</span></a>
+        <a href="#sec-7" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">07</span>财务分析</span></a>
+        <a href="#sec-8" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">08</span>公共信用综合分析</span><span class="text-[9px] bg-gold text-white px-1 rounded mr-1">双轨核心</span></a>
+        <a href="#sec-9" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">09</span>跨域风险翻译</span></a>
+        <a href="#sec-10" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">10</span>关联传染图谱</span></a>
+        <a href="#sec-11" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">11</span>ESG 综合分析</span></a>
+        <a href="#sec-12" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">12</span>信用调整与最终结论</span></a>
+        <a href="#sec-13" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">13</span>双轨融合声明</span><span class="text-[9px] bg-gold text-white px-1 rounded mr-1">合规</span></a>
+        <a href="#sec-14" class="toc-item flex items-center justify-between py-2 text-ink/80 hover:bg-brand-50"><span><span class="num text-xs text-muted mr-1">14</span>报告附录</span></a>
+      </nav>
+      <div class="border-t border-border mt-4 mx-3 pt-3 text-[11px] text-muted">
+        <div class="flex items-center gap-1 ${report.status === 'fused' ? 'text-danger' : 'text-success'}">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>
+          熔断校验：${report.status === 'fused' ? '已触发' : '未触发'}
+        </div>
+        <div class="mt-1">阅读进度 <span id="progPct" class="num">0%</span></div>
+        <div class="h-1 bg-bg rounded mt-1 overflow-hidden"><div id="progress" class="h-full bg-brand-500" style="width:0%"></div></div>
+      </div>
+    </aside>
+
+    <!-- 主内容 -->
+    <main class="flex-1 px-8 py-6 space-y-6 min-w-0 max-w-[calc(100%-14rem)]">
+
+      <!-- Sec 1: 报告头部卡 -->
+      <section id="sec-1" class="bg-white rounded-lg shadow-card p-6">
+        <div class="flex items-start justify-between gap-6 flex-wrap">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 text-xs text-muted mb-1">
+              <span class="px-1.5 py-px bg-brand-100 text-brand-700 rounded">${report.type}</span>
+              <span class="px-1.5 py-px bg-bg rounded">报告 V1.2</span>
+              <span>· ${subject.industry} · ${subject.listed ? '上市公司' : ''}</span>
+            </div>
+            <h1 class="text-2xl font-bold text-ink mt-1">${subject.name}</h1>
+            <div class="text-xs text-muted mt-1">
+              <span class="num">${subject.uscc}</span> ·
+              注册地址：${subject.address || '广东省广州市'} ·
+              法定代表人：${subject.legalRep} ·
+              注册资本 <span class="num">${fmtNum(subject.regCapital)}</span> 万元 ·
+              成立日期 <span class="num">${subject.establishedAt || '2008-06-12'}</span>
+            </div>
+            <div class="mt-3 flex items-center gap-3 text-xs flex-wrap">
+              <span class="text-muted">评级展望</span>
+              <span class="px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/30 font-medium">${subject.outlook || '稳定'}</span>
+              <span class="text-muted">·</span>
+              <span class="text-muted">评级有效期至</span>
+              <span class="num text-ink font-medium">${subject.validUntil || '—'}</span>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <div class="text-center w-24 py-3 px-2 rounded-lg bg-brand-50 border border-brand-200">
+              <div class="text-[10px] text-muted">远东市场化</div>
+              <div class="num text-2xl font-bold text-brand-700 mt-1">${report.market}</div>
+              <div class="text-[10px] text-muted">独立专业评级</div>
+            </div>
+            <div class="text-center w-24 py-3 px-2 rounded-lg ${getGradeBgClass(report.public)}">
+              <div class="text-[10px] text-muted">公共信用</div>
+              <div class="num text-2xl font-bold mt-1 ${getGradeColorClass(report.public)}">${report.public}</div>
+              <div class="text-[10px] text-muted">国家发改委体系</div>
+            </div>
+            ${fusionBadge(report.fusion)}
+          </div>
+        </div>
+      </section>
+
+      <!-- Sec 2: 评级观点 -->
+      <section id="sec-2" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-5 bg-brand-600 rounded"></span>评级观点
+        </h2>
+        <p class="text-sm leading-relaxed text-ink/90">
+          ${subject.name}主营业务运营稳健，行业地位居前，财务杠杆水平合理。本次评级综合考虑了远东市场化方法论的核心五要素（规模、业务、盈利、杠杆、偿债），以及国家公共信用综合评价（${report.public}级）所反映的<span class="bg-yellow-100 px-0.5">环保违规、欠税</span>等扣分事件，并通过本智能体的<span class="text-brand-600 font-medium">跨域风险翻译</span>映射为相应的 PD/LGD 调整因子。最终融合等级为 <span class="font-semibold text-gold">${report.fusion} 级</span>，评级展望<span class="font-medium">${subject.outlook || '稳定'}</span>。
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+          <div>
+            <div class="text-xs font-semibold text-success mb-2 flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M5 13l4 4L19 7"/></svg>主要支撑因素
+            </div>
+            <ul class="text-xs space-y-2 text-ink/80">
+              <li class="flex gap-2"><span class="text-success">+</span>行业地位 TOP 5，下游客户结构稳定，议价能力强</li>
+              <li class="flex gap-2"><span class="text-success">+</span>财务杠杆水平低于行业 P50，利息保障倍数 5.8 倍</li>
+              <li class="flex gap-2"><span class="text-success">+</span>实控人个人诚信积分 920（A级），治理结构稳定</li>
+            </ul>
+          </div>
+          <div>
+            <div class="text-xs font-semibold text-warning mb-2 flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M12 9v4m0 4h.01M10.3 3.86l-8.5 14.7a2 2 0 001.71 3h17a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>主要关注因素
+            </div>
+            <ul class="text-xs space-y-2 text-ink/80">
+              <li class="flex gap-2"><span class="text-warning">!</span>2025年6月发生环保处罚事件，公共信用扣分 120</li>
+              <li class="flex gap-2"><span class="text-warning">!</span>担保链中存在 C 级关联方"XX物流"</li>
+              <li class="flex gap-2"><span class="text-warning">!</span>ESG 碳足迹尚未通过国家认证，影响绿色融资资格</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sec 3: 行业与区域 -->
+      <section id="sec-3" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-semibold flex items-center gap-2 mb-3"><span class="w-1 h-5 bg-brand-600 rounded"></span>行业与区域分析</h2>
+        <div class="grid grid-cols-3 gap-4 text-sm">
+          <div class="border border-border rounded p-4">
+            <div class="text-xs text-muted mb-1">所属行业</div>
+            <div class="font-semibold text-base">${subject.industry}</div>
+            <div class="text-xs text-muted mt-2">行业平均评级：${gradeBadge('B')} · 近30天 D 级新增 5 家</div>
+          </div>
+          <div class="border border-border rounded p-4">
+            <div class="text-xs text-muted mb-1">所在区域</div>
+            <div class="font-semibold text-base">广东省广州市</div>
+            <div class="text-xs text-muted mt-2">区域信用环境：优 · 政策支持：粤港澳大湾区</div>
+          </div>
+          <div class="border border-border rounded p-4">
+            <div class="text-xs text-muted mb-1">行业景气度</div>
+            <div class="font-semibold text-base text-warning">中等偏下</div>
+            <div class="text-xs text-muted mt-2">受双碳政策影响，重点关注绿色转型</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sec 4: 主体基本情况 -->
+      <section id="sec-4" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-semibold flex items-center gap-2 mb-3"><span class="w-1 h-5 bg-brand-600 rounded"></span>主体基本情况</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div><div class="text-xs text-muted">主体名称</div><div class="font-medium mt-1">${subject.name}</div></div>
+          <div><div class="text-xs text-muted">统一社会信用代码</div><div class="num font-medium mt-1">${subject.uscc}</div></div>
+          <div><div class="text-xs text-muted">法定代表人</div><div class="font-medium mt-1">${subject.legalRep}</div></div>
+          <div><div class="text-xs text-muted">成立日期</div><div class="num font-medium mt-1">${subject.establishedAt || '2008-06-12'}</div></div>
+          <div><div class="text-xs text-muted">注册资本</div><div class="num font-medium mt-1">${fmtNum(subject.regCapital || 120000)} 万元</div></div>
+          <div><div class="text-xs text-muted">行业</div><div class="font-medium mt-1">${subject.industry}</div></div>
+          <div><div class="text-xs text-muted">注册地址</div><div class="font-medium mt-1">${subject.address || '广东省广州市'}</div></div>
+          <div><div class="text-xs text-muted">是否上市</div><div class="font-medium mt-1">${subject.listed ? '是（A股）' : '否'}</div></div>
+        </div>
+      </section>
+
+      <!-- Sec 5: 治理与管理 -->
+      <section id="sec-5" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-semibold flex items-center gap-2 mb-3"><span class="w-1 h-5 bg-brand-600 rounded"></span>治理与管理</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div class="border border-border rounded p-4">
+            <div class="text-xs text-muted mb-1">治理结构</div>
+            <div class="font-medium">规范 · 三会一层健全</div>
+            <div class="text-xs text-muted mt-2">独立董事比例 1/3 · 审计/薪酬/提名委员会齐备</div>
+          </div>
+          <div class="border border-border rounded p-4">
+            <div class="text-xs text-muted mb-1">核心高管稳定性</div>
+            <div class="font-medium">高 · 任职 ≥ 5 年</div>
+            <div class="text-xs text-muted mt-2">CEO/CFO 近 5 年无变动 · 平均任职 7.2 年</div>
+          </div>
+          <div class="border border-border rounded p-4">
+            <div class="text-xs text-muted mb-1">实控人个人诚信</div>
+            <div class="font-medium text-success">A 级 · 920 分</div>
+            <div class="text-xs text-muted mt-2">无失信记录 · 无限高 · 无司法处罚</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sec 6: 业务与经营 -->
+      <section id="sec-6" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-semibold flex items-center gap-2 mb-3"><span class="w-1 h-5 bg-brand-600 rounded"></span>业务与经营</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+          <div class="border border-border rounded p-4 text-center">
+            <div class="text-xs text-muted">主营业务收入</div>
+            <div class="num text-xl font-semibold text-brand-600 mt-1">¥850亿</div>
+            <div class="text-[10px] text-muted">同比 +6.2%</div>
+          </div>
+          <div class="border border-border rounded p-4 text-center">
+            <div class="text-xs text-muted">行业地位</div>
+            <div class="text-xl font-semibold text-brand-600 mt-1">TOP 5</div>
+            <div class="text-[10px] text-muted">${subject.industry} · 市占率 8.5%</div>
+          </div>
+          <div class="border border-border rounded p-4 text-center">
+            <div class="text-xs text-muted">客户集中度</div>
+            <div class="num text-xl font-semibold text-success mt-1">低</div>
+            <div class="text-[10px] text-muted">前 5 客户占比 18%</div>
+          </div>
+          <div class="border border-border rounded p-4 text-center">
+            <div class="text-xs text-muted">供应商集中度</div>
+            <div class="num text-xl font-semibold text-success mt-1">低</div>
+            <div class="text-[10px] text-muted">前 5 供应商占比 22%</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sec 7: 财务分析（简化） -->
+      <section id="sec-7" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-semibold flex items-center gap-2 mb-3"><span class="w-1 h-5 bg-brand-600 rounded"></span>财务分析（远东方法论核心五要素）</h2>
+        <div class="grid grid-cols-5 gap-3 text-sm">
+          ${[
+            ['规模','营收 850亿','行业 TOP 5'],
+            ['业务状况','下游集中度低','客户>200家'],
+            ['盈利能力','净利率 8.5%','优于行业'],
+            ['财务杠杆','资产负债率 52%','低于行业 P50'],
+            ['偿债能力','利息保障 5.8倍','现金流稳健']
+          ].map(([t,v,d]) => `
+            <div class="border border-border rounded p-3 text-center">
+              <div class="text-xs text-muted">${t}</div>
+              <div class="font-semibold mt-1">${v}</div>
+              <div class="text-[10px] text-success mt-1">${d}</div>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+
+      <!-- Sec 8: 公共信用综合分析（核心） -->
+      <section id="sec-8" class="bg-white rounded-lg shadow-card p-6 border-l-4 border-gold">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-gold rounded"></span>
+            公共信用综合分析
+            <span class="text-xs bg-gold text-white px-2 py-0.5 rounded">双轨核心</span>
+          </h2>
+          <span class="text-xs text-muted">由 CCASCEA · 白盒化逆向解构引擎 提供</span>
+        </div>
+
+        <div class="bg-bg rounded-lg p-4 mb-5">
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <div class="text-xs text-muted">公共信用评分</div>
+              <div class="num text-3xl font-bold text-warning mt-1">${subject.publicScore}<span class="text-base text-muted">/1000</span></div>
+              <div class="text-xs text-muted">基准 1000 · 失分 ${1000 - subject.publicScore}</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted">公共信用等级</div>
+              <div class="text-3xl font-bold text-warning mt-1">${subject.publicGrade}</div>
+              <div class="text-xs text-muted">${getGradeSemantic(subject.publicGrade)} (GB/T 22116)</div>
+            </div>
+            <div>
+              <div class="text-xs text-muted">行业 P50</div>
+              <div class="num text-3xl font-bold text-brand-600 mt-1">825</div>
+              <div class="text-xs text-muted">${subject.industry}（45/65）</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+          <div class="lg:col-span-2 border border-border rounded-lg p-4">
+            <div class="text-sm font-semibold mb-2">四维评分雷达 · 主体 vs 行业平均</div>
+            <div id="radar" class="h-72"></div>
+          </div>
+          <div class="border border-border rounded-lg p-4">
+            <div class="text-sm font-semibold mb-3">指标拆分</div>
+            <div class="space-y-3">
+              <div><div class="flex justify-between text-xs"><span>履约意愿</span><span class="num">270/300</span></div><div class="h-1.5 bg-bg rounded mt-1"><div class="h-full bg-brand-500 rounded" style="width:90%"></div></div></div>
+              <div><div class="flex justify-between text-xs"><span>履约能力</span><span class="num">250/300</span></div><div class="h-1.5 bg-bg rounded mt-1"><div class="h-full bg-brand-500 rounded" style="width:83%"></div></div></div>
+              <div><div class="flex justify-between text-xs"><span class="text-warning font-medium">履约行为</span><span class="num text-warning">200/400</span></div><div class="h-1.5 bg-bg rounded mt-1"><div class="h-full bg-warning rounded" style="width:50%"></div></div></div>
+              <div><div class="flex justify-between text-xs"><span>ESG 专项</span><span class="num">220/250</span></div><div class="h-1.5 bg-bg rounded mt-1"><div class="h-full bg-success rounded" style="width:88%"></div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-sm font-semibold mb-2">白盒化归因清单（${MockData.attribution.length} 项）</div>
+        <div class="overflow-x-auto border border-border rounded-lg">
+          <table class="w-full text-sm">
+            <thead><tr class="th text-left"><th class="px-4 py-2.5">维度</th><th class="py-2.5">扣分项</th><th class="py-2.5">原始事件</th><th class="py-2.5 text-center">扣分</th><th class="py-2.5">法律依据</th><th class="py-2.5">修复路径</th><th class="py-2.5 pr-4 text-center">操作</th></tr></thead>
+            <tbody class="divide-y divide-border">
+              ${MockData.attribution.map((a,i)=>`
+                <tr class="hover:bg-bg">
+                  <td class="px-4 py-3"><span class="text-xs px-1.5 py-0.5 rounded ${a.dimension === 'ESG' ? 'bg-success/10 text-success border border-success/30' : a.dimension === '履约行为' ? 'bg-warning/10 text-warning border border-warning/30' : 'bg-brand-100 text-brand-700 border border-brand-200'}">${a.dimension}</span></td>
+                  <td>${a.item}</td>
+                  <td class="text-xs text-muted">${a.event}</td>
+                  <td class="num text-center font-semibold ${a.score < 0 ? 'text-danger' : 'text-success'}">${a.score > 0 ? '+' : ''}${a.score}</td>
+                  <td class="text-xs text-muted">${a.legalBasis}</td>
+                  <td class="text-xs text-muted">${a.repairPath}</td>
+                  <td class="text-center"><button class="text-xs text-brand-600 hover:underline" onclick="openTrace(${i})">追溯</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Sec 9: 跨域风险翻译 -->
+      <section id="sec-9" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-semibold flex items-center gap-2 mb-3"><span class="w-1 h-5 bg-brand-600 rounded"></span>跨域风险翻译<span class="text-xs text-muted font-normal">· 社会合规 → 偿债风险 PD/LGD 自动映射</span></h2>
+        <div class="space-y-3">
+          ${MockData.translations.map(t => `
+            <div class="border border-border rounded-lg p-4 grid grid-cols-12 gap-3 items-center hover:bg-bg">
+              <div class="col-span-3"><div class="text-[10px] text-muted">原始事件</div><div class="text-sm font-medium">${t.event}</div><div class="text-xs ${t.eventScore < 0 ? 'text-danger' : 'text-success'} num">${t.eventScore > 0 ? '+' : ''}${t.eventScore} 分</div></div>
+              <div class="col-span-2"><div class="text-[10px] text-muted">行业系数</div><div class="text-sm">${t.industryFactor}</div></div>
+              <div class="col-span-3"><div class="text-[10px] text-muted">推演风险</div><div class="text-sm">PD <span class="num ${t.pdDelta.startsWith('-') ? 'text-success' : 'text-danger'}">${t.pdDelta}</span> · LGD <span class="num">${t.lgdDelta}</span></div><div class="text-[10px] text-muted">${t.cashflowImpact}</div></div>
+              <div class="col-span-2"><div class="text-[10px] text-muted">建议动作</div><div class="text-sm font-medium ${t.actionType === 'down' ? 'text-warning' : t.actionType === 'up' ? 'text-success' : 'text-brand-600'}">${t.action}</div></div>
+              <div class="col-span-2 text-right text-xs text-success">已采纳 ✓</div>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+
+      <!-- Sec 10: 关联传染 -->
+      <section id="sec-10" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-semibold flex items-center gap-2 mb-3"><span class="w-1 h-5 bg-brand-600 rounded"></span>关联传染性风险图谱<span class="text-xs text-muted font-normal">· R<sub>risk</sub> = f(C<sub>individual</sub>, C<sub>corporate</sub>, G<sub>relationship</sub>)</span></h2>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div class="lg:col-span-2 border border-border rounded-lg p-3 bg-bg"><div id="graph" class="h-80"></div></div>
+          <div class="border border-border rounded-lg p-4">
+            <div class="text-sm font-semibold mb-3">关联节点摘要</div>
+            <ul class="text-xs space-y-2">
+              <li class="flex items-center gap-2"><span class="w-2 h-2 bg-success rounded-full"></span>实控人 张某某 · A级（920分）</li>
+              <li class="flex items-center gap-2"><span class="w-2 h-2 bg-brand-500 rounded-full"></span>母公司 XX集团 · BB级</li>
+              <li class="flex items-center gap-2"><span class="w-2 h-2 bg-success rounded-full"></span>子公司1 · A级</li>
+              <li class="flex items-center gap-2"><span class="w-2 h-2 bg-warning rounded-full"></span>子公司2 · B级</li>
+              <li class="flex items-center gap-2"><span class="w-2 h-2 bg-danger rounded-full"></span>担保方 XX物流 · C级</li>
+              <li class="flex items-center gap-2"><span class="w-2 h-2 bg-warning rounded-full"></span>中介机构 · TSC3</li>
+            </ul>
+            <div class="mt-4 p-3 rounded bg-warning/10 border border-warning/30"><div class="text-xs font-semibold text-warning">中等关联风险</div><div class="text-[11px] text-muted mt-1">担保链中存在 C 级节点；融合等级中已计入 -0.5 子级。</div></div>
+            <div class="mt-3 text-xs num"><span class="text-muted">R_total =</span> <span class="font-semibold">${MockData.graph.rTotal}</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sec 11: ESG -->
+      <section id="sec-11" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-semibold flex items-center gap-2 mb-3"><span class="w-1 h-5 bg-success rounded"></span>ESG 综合分析</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="border border-border rounded-lg p-4"><div class="flex items-center justify-between"><span class="text-sm font-semibold">环境 (E)</span><span class="text-sm font-bold text-success">85</span></div><div class="h-1.5 bg-bg rounded mt-2"><div class="h-full bg-success rounded" style="width:85%"></div></div><div class="text-[11px] text-muted mt-2">绿电消纳 65% · 碳排放强度优于行业</div></div>
+          <div class="border border-border rounded-lg p-4"><div class="flex items-center justify-between"><span class="text-sm font-semibold">社会 (S)</span><span class="text-sm font-bold text-brand-600">78</span></div><div class="h-1.5 bg-bg rounded mt-2"><div class="h-full bg-brand-500 rounded" style="width:78%"></div></div><div class="text-[11px] text-muted mt-2">稳就业 +5% · 农民工工资按时足额</div></div>
+          <div class="border border-border rounded-lg p-4"><div class="flex items-center justify-between"><span class="text-sm font-semibold">治理 (G)</span><span class="text-sm font-bold text-brand-600">82</span></div><div class="h-1.5 bg-bg rounded mt-2"><div class="h-full bg-brand-500 rounded" style="width:82%"></div></div><div class="text-[11px] text-muted mt-2">信息披露完整及时 · 反腐败合规健全</div></div>
+        </div>
+        <div class="mt-3 text-xs text-muted">ESG 综合排名：<span class="text-brand-700 font-semibold">${subject.industry}行业 18 / 65</span> · 优于行业 P50</div>
+      </section>
+
+      <!-- Sec 12: 信用调整与最终结论 -->
+      <section id="sec-12" class="bg-white rounded-lg shadow-card p-6">
+        <h2 class="text-lg font-semibold flex items-center gap-2 mb-3"><span class="w-1 h-5 bg-brand-600 rounded"></span>信用调整与最终结论</h2>
+        <div class="overflow-hidden rounded-lg border border-border">
+          <table class="w-full text-sm">
+            <thead><tr class="bg-bg text-xs text-muted"><th class="px-4 py-2.5 text-left font-semibold">远东原始等级</th><th class="py-2.5 text-center font-semibold">公共信用调整</th><th class="py-2.5 text-center font-semibold">ESG 调整</th><th class="py-2.5 text-center font-semibold">关联调整</th><th class="py-2.5 text-center font-semibold">最终融合等级</th><th class="py-2.5 text-right pr-4 font-semibold">评级展望</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="px-4 py-3"><span class="num text-base font-bold text-brand-700">${report.market}</span></td>
+                <td class="text-center text-warning num">-1.0 子级</td>
+                <td class="text-center text-success num">+0.5 子级</td>
+                <td class="text-center text-warning num">-0.5 子级</td>
+                <td class="text-center"><span class="num text-2xl font-bold text-gold">${report.fusion}</span></td>
+                <td class="text-right pr-4"><span class="px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/30 text-xs">${subject.outlook || '稳定'}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- D级熔断状态 -->
+      <section class="${report.status === 'fused' ? 'bg-danger/10 border-2 border-danger' : 'bg-success/5 border-l-4 border-success'} rounded-lg p-4 flex items-center gap-3 ${report.status === 'fused' ? 'breathe' : ''}">
+        <svg class="w-7 h-7 ${report.status === 'fused' ? 'text-danger' : 'text-success'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="flex-1">
+          <div class="text-sm font-semibold ${report.status === 'fused' ? 'text-danger' : 'text-success'}">D级熔断校验：${report.status === 'fused' ? '已触发' : '未触发'}</div>
+          <div class="text-xs text-muted">${report.status === 'fused' ? '本主体已被强制锁定为 D 级，市场化评级不得评为 A 级以上。' : '本主体当前未触发任何 D 级熔断条件，可正常进行市场化评级流程。'}</div>
+        </div>
+        <div class="text-xs text-muted">最近校验：<span class="num">2026-04-28 14:32</span></div>
+      </section>
+
+      <!-- Sec 13: 双轨融合声明 -->
+      <section id="sec-13" class="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-lg border-2 border-gold p-6 shadow-cardLg">
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-lg bg-gold flex items-center justify-center text-white text-xl font-bold flex-shrink-0">★</div>
+          <div class="flex-1">
+            <div class="text-base font-semibold text-gold mb-2">双轨融合标准化声明</div>
+            <p class="text-sm leading-relaxed text-ink/90">本评级已机制化融合公共（社会）信用评价的过程与结果，严格遵循国办发〔2026〕8号文<span class="font-medium">"支持征信机构、信用评级机构将公共信用评价结果纳入市场化信用评价指标体系"</span>的顶层设计。本智能体提供的所有公共信用数据与翻译建议均可在审计日志中追溯。</p>
+            <div class="mt-4 flex items-center gap-2 flex-wrap">
+              <span class="text-xs px-2 py-1 bg-white border border-gold/40 text-gold rounded">GB/T 23794-2023</span>
+              <span class="text-xs px-2 py-1 bg-white border border-gold/40 text-gold rounded">GB/T 45255-2025</span>
+              <span class="text-xs px-2 py-1 bg-white border border-gold/40 text-gold rounded">国办发〔2026〕8号</span>
+              <span class="text-xs px-2 py-1 bg-white border border-gold/40 text-gold rounded">等保2.0 三级</span>
+            </div>
+            <div class="mt-3 pt-3 border-t border-gold/20 text-[11px] text-muted flex items-center gap-3 flex-wrap">
+              <span>审计ID：<span class="num text-ink">AUD-${report.id.replace(/[^0-9]/g,'').slice(0,12)}</span></span>
+              <span class="w-px h-3 bg-border"></span>
+              <span>区块链 hash：<span class="num text-ink">0x9f3a...c41e</span></span>
+              <a href="audit-log.html" class="text-brand-600 hover:underline ml-auto">查看完整审计链 →</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sec 14: 附录 -->
+      <section id="sec-14" class="bg-white rounded-lg shadow-card">
+        <details class="p-4" open>
+          <summary class="cursor-pointer font-semibold flex items-center gap-2"><svg class="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9 5l7 7-7 7"/></svg>报告附录 · 数据源 / 算法版本 / 复核记录</summary>
+          <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
+            <div><div class="font-semibold mb-2">数据来源</div><ul class="space-y-1 text-muted"><li>· 信用中国（国家发改委）</li><li>· 全国信用信息共享平台</li><li>· 国家企业信用信息公示系统</li><li>· 税务总局电子税务局</li><li>· 海关 AEO 名录</li><li>· 最高人民法院失信被执行人</li><li>· 生态环境部 / 应急管理部</li></ul></div>
+            <div><div class="font-semibold mb-2">算法与版本</div><ul class="space-y-1 text-muted num"><li>· 评分模型 v2.6</li><li>· 翻译规则库 v1.18</li><li>· 知识图谱 v3.4</li><li>· LLM 推理网关 v1.2</li><li>· 隐私计算引擎 FATE 1.11 · TEE Intel SGX</li></ul></div>
+            <div><div class="font-semibold mb-2">复核记录</div><ul class="space-y-1 text-muted"><li>· 一审：王XX · 2026-04-28 09:12</li><li>· 二审：李XX · 2026-04-28 11:48</li><li>· 终审：张XX · 2026-04-28 14:30</li><li>· 发布：系统自动 · 2026-04-28 14:32</li></ul></div>
+          </div>
+        </details>
+      </section>
+
+    </main>
+  </div>
+`;
+
+/* ============== 工具 ============== */
+function getGradeBgClass(g) {
+  if (['AAA','AA','A'].includes(g)) return 'bg-success/10 border border-success/30';
+  if (['BBB','BB','B'].includes(g)) return 'bg-warning/10 border border-warning/30';
+  if (['CCC','CC','C'].includes(g)) return 'bg-orange-100 border border-orange-300';
+  if (g === 'D')                    return 'bg-danger/15 border border-danger/40';
+  return 'bg-bg border border-border';
+}
+function getGradeColorClass(g) {
+  if (['AAA','AA','A'].includes(g)) return 'text-success';
+  if (['BBB','BB','B'].includes(g)) return 'text-warning';
+  if (['CCC','CC','C'].includes(g)) return 'text-orange-600';
+  if (g === 'D')                    return 'text-danger';
+  return 'text-muted';
+}
+function getGradeSemantic(g) {
+  return ({ AAA:'诚信模范',AA:'诚信优秀',A:'诚信',BBB:'基本诚信',BB:'诚信观察',B:'诚信警示',CCC:'基本失信',CC:'失信',C:'一般失信',D:'严重失信',NR:'未分级' })[g] || '';
+}
+
+/* ============== 雷达图 ============== */
+const radarEl = document.getElementById('radar');
+if (radarEl) {
+  const r = echarts.init(radarEl);
+  r.setOption({
+    tooltip: {},
+    radar: {
+      indicator: [
+        { name: '履约意愿', max: 100 },{ name: '履约能力', max: 100 },
+        { name: '履约行为', max: 100 },{ name: 'ESG 专项', max: 100 }
+      ],
+      splitArea: { areaStyle: { color: ['#F8FAFC','#FFFFFF'] } },
+      axisName: { color: '#1E293B', fontSize: 12 }
+    },
+    series: [{
+      type: 'radar',
+      data: [
+        { value:[90,83,50,88], name:'本主体', itemStyle:{color:'#2E74B5'}, areaStyle:{color:'rgba(46,116,181,0.18)'} },
+        { value:[82,75,78,70], name:'行业平均', itemStyle:{color:'#F59E0B'}, areaStyle:{color:'rgba(245,158,11,0.10)'}, lineStyle:{type:'dashed'} }
+      ]
+    }]
+  });
+  window.addEventListener('resize', () => r.resize());
+}
+
+/* ============== 关联图 ============== */
+const graphEl = document.getElementById('graph');
+if (graphEl) {
+  const g = echarts.init(graphEl);
+  const data = MockData.graph;
+  g.setOption({
+    tooltip: {},
+    series: [{
+      type: 'graph', layout: 'force', symbolSize: 50, roam: false,
+      label: { show: true, color: '#1E293B', fontSize: 11 },
+      edgeSymbol: ['circle','arrow'], edgeSymbolSize: [3, 8],
+      force: { repulsion: 600, edgeLength: 110 },
+      data: data.nodes.map(n => ({ ...n, itemStyle:{color:n.color}, label:{color:n.textColor || '#1E293B'} })),
+      links: data.links.map(l => ({
+        source: l.source, target: l.target,
+        lineStyle: l.danger ? { color:'#DC2626', width:2 } : (l.warning ? { color:'#F59E0B', type:'dashed' } : {}),
+        label: { show: !!l.label, formatter: l.label, fontSize: 9, color: l.danger ? '#DC2626' : (l.warning ? '#F59E0B' : '#64748B') }
+      }))
+    }]
+  });
+  window.addEventListener('resize', () => g.resize());
+}
+
+/* ============== TOC scrollspy ============== */
+const tocLinks = document.querySelectorAll('#toc a');
+const sectionIds = ['sec-1','sec-2','sec-3','sec-4','sec-5','sec-6','sec-7','sec-8','sec-9','sec-10','sec-11','sec-12','sec-13','sec-14'];
+const sections = sectionIds.map(id => document.getElementById(id)).filter(Boolean);
+function activeToc(id) {
+  tocLinks.forEach(a => {
+    if (a.getAttribute('href') === '#' + id) {
+      a.classList.add('toc-active'); a.classList.remove('toc-item','text-ink/80');
+    } else {
+      a.classList.remove('toc-active'); a.classList.add('toc-item','text-ink/80');
+    }
+  });
+  const idx = sectionIds.indexOf(id);
+  const pct = Math.round((idx+1) / sectionIds.length * 100);
+  document.getElementById('progress').style.width = pct + '%';
+  document.getElementById('progPct').textContent = pct + '%';
+}
+window.addEventListener('scroll', () => {
+  const y = window.scrollY + 200;
+  let active = sections[0]?.id;
+  for (const s of sections) if (s.offsetTop <= y) active = s.id;
+  if (active) activeToc(active);
+});
+tocLinks.forEach(a => a.addEventListener('click', e => {
+  e.preventDefault();
+  const id = a.getAttribute('href').slice(1);
+  document.getElementById(id)?.scrollIntoView({ behavior:'smooth', block:'start' });
+}));
+
+/* ============== Trace Modal ============== */
+function openTrace(i) {
+  const a = MockData.attribution[i];
+  openModal({
+    title: '事件追溯：' + a.item,
+    content: `
+      <div class="space-y-2 text-sm">
+        <div><span class="text-muted w-24 inline-block">原始事件：</span>${a.event}</div>
+        <div><span class="text-muted w-24 inline-block">事件时间：</span><span class="num">${a.eventDate}</span></div>
+        <div><span class="text-muted w-24 inline-block">扣分：</span><span class="num text-danger">${a.score}</span></div>
+        <div><span class="text-muted w-24 inline-block">法律依据：</span>${a.legalBasis}</div>
+        <div><span class="text-muted w-24 inline-block">修复路径：</span>${a.repairPath}</div>
+        <div class="pt-2 border-t border-border"><div class="text-xs text-muted">数据来源：信用中国 / 全国信用信息共享平台</div><div class="text-xs text-muted">采集时间：<span class="num">2026-04-28 02:14</span></div><div class="text-xs text-muted">审计哈希：<span class="num text-xs">0xb12...e8f9</span></div></div>
+      </div>
+    `
+  });
+}
+window.openTrace = openTrace;
+</script>
+</body>
+</html>

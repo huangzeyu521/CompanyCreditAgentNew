@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>信评委决议书 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260511a"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260511a" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260511a"></script>
+<script src="../assets/js/mock-data.js?v=20260511a"></script>
+<script src="../assets/js/copy-corpus.js?v=20260511a"></script>
+<script src="../assets/js/common.js?v=20260511a"></script>
+<script src="../assets/js/layout.js?v=20260511a"></script>
+<script src="../assets/js/prompts.js?v=20260511a"></script>
+<script src="../assets/js/ai-agent.js?v=20260511a"></script>
+<script>
+/* ============== 信评委决议书 ==============
+ *  · 项目模式：本项目决议书 detail view（受评主体 + 决议元数据 + 投票委员 + 关键风险 + 异议 + 红线 + 附件 + 留痕）
+ *  · 全局模式：全公司决议库 list view
+ * ====================================================== */
+function renderMain() {
+  const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+  const allRes = MockData.committeeResolutions || [];
+  if (p) return renderDetailView(p, allRes);
+  return renderListView(allRes);
+}
+
+function renderDetailView(p, allRes) {
+  const projectRes = allRes.filter(r => r.subject === p.subject);
+  const cur = projectRes[0] || null;
+  const subj = (MockData.subjects || []).find(s => s.name === p.subject) || {};
+  const labels = subj.creditLabels || [];
+  const leadMember = (p.team && p.team[0]) || {};
+  const leadName = typeof leadMember === 'object' ? leadMember.name : leadMember;
+
+  const noticeBanner = `
+    <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+      <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span><strong class="text-ink">数据声明：</strong>决议书结构对齐《信评委制度》第二十八至三十一条；具体内容为 CCASCEA 演示样例。</span>
+    </div>`;
+
+  const header = `
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between flex-wrap gap-2">
+        <div class="min-w-0">
+          <h1 class="text-lg font-semibold flex items-center gap-2 flex-wrap">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            <span class="text-brand-700">${p.subject}</span>
+            <span class="text-muted">·</span>
+            信评委决议书
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">项目级 · detail view</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            本页展示本项目（<strong class="text-ink">${p.id}</strong>）的信评委决议书完整内容：受评主体 / 议项 / 投票委员 / 关键风险 / 异议 / 红线锁定 / 附件 / 会议留痕。
+            依据《信评委制度》第二十八至三十一条，决议书将进入审计链留存 ≥ 15 年。
+          </p>
+          <div class="text-[11px] mt-2 flex items-center gap-3">
+            <a href="project-workbench.html?projectId=${p.id}" class="text-brand-600 hover:underline">← 返回项目工作台</a>
+            <span class="text-muted">|</span>
+            <a href="committee-resolution.html" class="text-brand-600 hover:underline">查看全公司决议库 →</a>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <button onclick="liveSession()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">📺 会议同屏</button>
+        </div>
+      </div>
+    </section>`;
+
+  const subjectCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5 overflow-hidden">
+      <div class="bg-gradient-to-r from-brand-600 to-brand-700 text-white px-5 py-4">
+        <div class="text-xs text-white/70 mb-1">受评主体</div>
+        <div class="text-lg font-bold flex items-center gap-2 flex-wrap">
+          <span>${p.subject}</span>
+          ${labels.map(l => `<span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full border border-white/30">${l}</span>`).join('')}
+        </div>
+        <div class="text-[11px] text-white/85 mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          <span>USCC · <span class="num">${subj.uscc || '—'}</span></span>
+          <span>行业 · ${p.industry || '—'}</span>
+          <span>评级类型 · ${p.ratingType || (Array.isArray(p.ratingTypes) ? p.ratingTypes.join('+') : '—')}</span>
+          <span>项目组组长 · ${leadName || '—'}</span>
+          <span>立项 · ${p.createdAt || '—'}</span>
+        </div>
+      </div>
+    </section>`;
+
+  if (!cur) {
+    return `
+      ${noticeBanner}
+      ${header}
+      ${subjectCard}
+      <section class="bg-white rounded-lg shadow-card px-5 py-16 text-center">
+        <div class="text-4xl mb-3">📋</div>
+        <div class="text-sm font-medium">本项目尚无信评委决议书</div>
+        <div class="text-xs text-muted mt-2">需先完成「信评委电子投票」后系统自动生成决议书并写入审计链</div>
+        <a href="committee-vote.html" class="inline-block mt-4 text-xs px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700">前往信评委投票 →</a>
+      </section>
+    `;
+  }
+
+  // 决议元数据 + 总体结论
+  const isRedline = cur.publicGrade === 'D' || (cur.redLine && cur.redLine.enforced);
+  const hasDissent = (cur.dissents && cur.dissents.length > 0) || (cur.members || []).some(m => m.vote === '反对');
+  const passCount = (cur.members || []).filter(m => m.vote === '通过').length;
+  const againstCount = (cur.members || []).filter(m => m.vote === '反对').length;
+  const abstainCount = (cur.members || []).filter(m => m.vote === '弃权').length;
+  const recusedCount = (cur.members || []).filter(m => m.recused).length;
+  const activeMembers = (cur.members || []).filter(m => !m.recused).length;
+  const passRate = activeMembers > 0 ? (passCount / activeMembers) : 0;
+  const verdictCls = isRedline ? 'bg-warning/5 border-warning/40'
+                  : hasDissent ? 'bg-brand-50 border-brand-300'
+                  : 'bg-success/5 border-success/40';
+  const verdictIcon = isRedline ? '⚠' : hasDissent ? '◐' : '✓';
+  const verdictText = isRedline ? '通过 · 红线锁定'
+                    : hasDissent ? `通过 · 议委修订（提交 ${cur.proposedGrade} → 表决 ${cur.finalGrade}）`
+                    : '通过 · 表决一致';
+  const verdictTone = isRedline ? 'text-warning' : hasDissent ? 'text-brand-700' : 'text-success';
+
+  const metaCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between flex-wrap gap-2">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          本次决议 · ${cur.id}
+        </h2>
+        <span class="text-[11px] num text-muted">关联会议 ${cur.sessionId} · ${cur.date}</span>
+      </div>
+      <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2 border-2 ${verdictCls} rounded-lg p-4 flex items-center gap-4">
+          <div class="text-4xl ${verdictTone} font-bold">${verdictIcon}</div>
+          <div class="flex-1">
+            <div class="text-base font-semibold ${verdictTone}">${verdictText}</div>
+            <div class="text-xs text-muted mt-1 leading-snug">${cur.vote}</div>
+            <div class="mt-2 flex items-center gap-2 flex-wrap">
+              <span class="text-[10px] px-2 py-0.5 rounded bg-bg border border-border">提交：${cur.proposedGrade}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded ${cur.finalGrade === cur.proposedGrade ? 'bg-success/10 text-success border border-success/30' : 'bg-warning/10 text-warning border border-warning/30'}">表决：${cur.finalGrade}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-bg border border-border text-muted">公共信用：${cur.publicGrade}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded ${passRate >= 2/3 ? 'bg-success/10 text-success border border-success/30' : 'bg-danger/10 text-danger border border-danger/30'}">同意率 ${Math.round(passRate*100)}% ${passRate >= 2/3 ? '≥ 2/3 有效' : '< 2/3 无效'}</span>
+            </div>
+          </div>
+        </div>
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span class="text-muted">主席</span><span class="font-medium">${cur.chair}</span>
+          </div>
+          <div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span class="text-muted">委员（参会/回避）</span><span class="num">${activeMembers} / ${recusedCount}</span>
+          </div>
+          <div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+            <span class="text-muted">会议日期</span><span class="num">${cur.date}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted">状态</span><span class="${cur.status.includes('生效') ? 'text-success' : 'text-muted'} font-medium">${cur.status}</span>
+          </div>
+        </div>
+      </div>
+    </section>`;
+
+  // 投票委员
+  const membersCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          投票委员（${(cur.members||[]).length} 人）
+        </h2>
+        <span class="text-[11px] text-muted">通过 ${passCount} · 反对 ${againstCount} · 弃权 ${abstainCount} · 回避 ${recusedCount}</span>
+      </div>
+      <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+        ${(cur.members || []).map(m => {
+          const voteCls = m.recused ? 'bg-bg text-muted border border-border'
+                        : m.vote === '通过' ? 'bg-success/10 text-success border border-success/30'
+                        : m.vote === '反对' ? 'bg-danger/10 text-danger border border-danger/30'
+                        : 'bg-warning/10 text-warning border border-warning/30';
+          const cardCls = m.recused ? 'border-dashed border-muted/40 bg-bg/30'
+                        : m.vote === '反对' ? 'border-danger/30 bg-danger/5'
+                        : 'border-border';
+          return `
+            <div class="border ${cardCls} rounded-md p-3 flex items-start gap-3">
+              <div class="w-9 h-9 rounded-full ${m.recused ? 'bg-bg' : 'bg-brand-50'} text-brand-700 flex items-center justify-center font-bold flex-shrink-0">${m.name ? m.name[0] : '?'}</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-medium">${m.name}</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded ${voteCls}">${m.recused ? '回避' : m.vote}</span>
+                  ${m.signedAt && !m.recused ? '<span class="text-[10px] text-success">U 盾 ✓</span>' : ''}
+                </div>
+                <div class="text-[11px] text-muted mt-0.5">${m.role}</div>
+                ${m.reason ? `<div class="text-[11px] text-ink/80 mt-1 italic leading-snug">"${m.reason}"</div>` : ''}
+                ${m.signedAt && !m.recused ? `<div class="text-[10px] num text-muted mt-1">签字 ${m.signedAt}</div>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </section>`;
+
+  // 关键风险
+  const risksCard = (cur.keyRisks && cur.keyRisks.length) ? `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-warning rounded"></span>
+          关键风险点（${cur.keyRisks.length}）
+        </h2>
+      </div>
+      <ol class="p-5 space-y-2 text-xs leading-relaxed">
+        ${cur.keyRisks.map((r, i) => `
+          <li class="flex items-start gap-3">
+            <span class="w-5 h-5 rounded bg-warning/10 text-warning text-[10px] flex items-center justify-center font-semibold flex-shrink-0">${i+1}</span>
+            <span class="flex-1 text-ink/85">${r}</span>
+          </li>
+        `).join('')}
+      </ol>
+    </section>
+  ` : '';
+
+  // 异议
+  const dissentsCard = (cur.dissents && cur.dissents.length) ? `
+    <section class="bg-white rounded-lg shadow-card mb-5 border-l-4 border-brand-600">
+      <div class="px-5 py-3 border-b border-border">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          委员异议（${cur.dissents.length}）
+        </h2>
+      </div>
+      <div class="p-5 space-y-3">
+        ${cur.dissents.map(d => `
+          <div class="border border-border rounded p-3 ${d.accepted ? 'bg-warning/5 border-warning/30' : ''}">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-sm font-medium">${d.member}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-danger/10 text-danger border border-danger/30">${d.vote}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded ${d.accepted ? 'bg-warning/10 text-warning border border-warning/30' : 'bg-bg text-muted border border-border'}">${d.accepted ? '✓ 议委采纳' : '未采纳'}</span>
+            </div>
+            <div class="text-xs text-ink/85 leading-relaxed mt-2">${d.reason}</div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  ` : '';
+
+  // 红线锁定
+  const redlineCard = (cur.redLine && cur.redLine.enforced) ? `
+    <section class="bg-white rounded-lg shadow-card mb-5 border-l-4 border-warning">
+      <div class="px-5 py-3 border-b border-border">
+        <h2 class="text-sm font-semibold flex items-center gap-2 text-warning">
+          ⚠ 红线锁定
+        </h2>
+      </div>
+      <div class="p-5 text-xs leading-relaxed space-y-2">
+        <div><span class="text-muted">触发规则：</span><strong class="text-warning">${cur.redLine.rule}</strong></div>
+        <div><span class="text-muted">锁定上限：</span><strong>${cur.redLine.limit}</strong>（市场化等级不得高于此）</div>
+        <div class="text-ink/85">${cur.redLine.explanation}</div>
+      </div>
+    </section>
+  ` : '';
+
+  // 决议正文
+  const bodyCard = `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          决议正文
+        </h2>
+      </div>
+      <div class="p-8 text-sm leading-relaxed">
+        <h2 class="text-center text-xl font-bold mb-4">远东资信评估有限公司<br/>信用评审委员会决议书</h2>
+        <div class="text-center text-xs text-muted mb-6">编号：${cur.id} · 关联会议：${cur.sessionId}</div>
+
+        <div class="space-y-3 text-xs leading-relaxed">
+          <p><strong>一、议项摘要</strong></p>
+          <p class="text-ink/85 indent-8">本次信评委对 <strong>${cur.subject}</strong> 主体信用等级及评级展望进行审议。项目组提交的评级建议为 <strong>${cur.proposedGrade}</strong>，
+          基于 BACP 评分 + AM 调整 + 外部支持评估，并融合公共信用 <strong>${cur.publicGrade}</strong> 级。</p>
+
+          <p><strong>二、审议过程</strong></p>
+          <p class="text-ink/85 indent-8">1. 项目组负责人介绍评级要点；2. 委员逐条审议关键风险（详见上方"关键风险点"区）；
+          3. 委员对评级建议的方法学运用、合规框架（含 D 级红线）进行质疑与确认。
+          ${cur.dissents && cur.dissents.length ? '4. 议委孙琳琳就担保链穿透问题提出异议（详见上方"委员异议"区），经讨论后采纳，下调最终等级。' : ''}</p>
+
+          <p><strong>三、表决结果</strong></p>
+          <p class="text-ink/85 indent-8"><strong>投票统计：</strong>${cur.vote}</p>
+          <p class="text-ink/85 indent-8"><strong>表决比例：</strong>${passRate >= 2/3 ? '同意 / 参会 ≥ 2/3，符合' : '未达'}《信评委制度》第三十一条有效条件。</p>
+
+          <p><strong>四、决议</strong></p>
+          <p class="text-ink/85 indent-8">经信评委表决通过，受评对象主体信用等级 <strong class="text-brand-700">${cur.finalGrade}</strong>。</p>
+
+          ${isRedline ? `
+          <p class="text-warning"><strong>五、红线锁定</strong></p>
+          <p class="text-ink/85 indent-8">${cur.redLine.explanation}。本决议已落实红线锁定。</p>
+          ` : ''}
+
+          <p><strong>${isRedline ? '六' : '五'}、合规留痕</strong></p>
+          <p class="text-ink/85 indent-8">本次会议参会委员 ${activeMembers} 人，回避机制按《信评委制度》第三十二条执行。
+          会议全程同屏录像留痕（哈希：<span class="num">${cur.recordingHash}</span>，区块链存证）；委员 U 盾签字记录已写入审计链。</p>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 mt-8 pt-4 border-t border-border text-xs">
+          <div><span class="text-muted">主席签字：</span><div class="font-medium mt-1">${cur.chair}（U 盾 ✓）</div></div>
+          <div><span class="text-muted">出具时间：</span><div class="num mt-1">${cur.date}</div></div>
+          <div><span class="text-muted">公章：</span><div class="font-medium mt-1 text-success">已加盖（电子）</div></div>
+        </div>
+      </div>
+    </section>`;
+
+  // 附件
+  const attachmentsCard = (cur.attachments && cur.attachments.length) ? `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h2 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          附件（${cur.attachments.length}）
+        </h2>
+      </div>
+      <div class="p-5 space-y-2">
+        ${cur.attachments.map(a => `
+          <div class="flex items-center gap-3 p-2 border border-border rounded hover:bg-bg/40">
+            <span class="text-base">📎</span>
+            <span class="flex-1 text-sm">${a.name}</span>
+            <span class="text-[11px] text-muted num">${a.size}</span>
+            <button onclick="toast('已下载 ' + decodeURIComponent('${encodeURIComponent(a.name)}'),'success')" class="text-[11px] text-brand-600 hover:underline">下载</button>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  ` : '';
+
+  // 行动区
+  const actions = `
+    <section class="bg-bg/40 border border-border rounded-lg p-4 flex items-center justify-between flex-wrap gap-3">
+      <div class="text-xs text-muted">
+        决议书已写入审计链，保留 ≥ 15 年（哈希：<span class="num text-ink/85">${cur.recordingHash.slice(0,18)}...</span>）
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button onclick="toast('决议书 PDF 已下载','success')" class="text-xs px-3 py-1.5 border border-border rounded hover:bg-white">导出 PDF</button>
+        <button onclick="toast('已发送至项目组与受评对象','success')" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded hover:bg-brand-700">发送项目组 + 受评对象</button>
+        <button onclick="liveSession()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded hover:opacity-90">📺 查看会议录像</button>
+      </div>
+    </section>`;
+
+  return `
+    ${noticeBanner}
+    ${header}
+    ${subjectCard}
+    ${metaCard}
+    ${membersCard}
+    ${risksCard}
+    ${dissentsCard}
+    ${redlineCard}
+    ${bodyCard}
+    ${attachmentsCard}
+    ${actions}
+  `;
+}
+
+function renderListView(res) {
+  const cur = res[0] || null;
+  return `
+    <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+      <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span><strong class="text-ink">数据声明：</strong>决议书结构对齐《信评委制度》；具体决议内容为 CCASCEA 演示样例。</span>
+    </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between flex-wrap gap-2">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2 flex-wrap">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            信评委决议书
+            <span class="text-xs text-muted font-normal ml-2">P1 · 《信评委制度》第二十八至三十一条</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-bg text-muted border border-border">全公司决议库 · list view</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            投票通过后<strong>自动生成正式信评委决议书</strong>（含会议主持人 / 委员名单 / 投票统计 / 决议内容 / 委员签字 / 会议同屏录像哈希）。决议书将进入审计链留存 ≥ 15 年。
+          </p>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <button onclick="liveSession()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">📺 会议同屏（实时）</button>
+          <button onclick="newResolution()" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700">+ 生成决议书</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本月决议</div><div class="num text-2xl font-bold text-brand-600 mt-1">${res.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已生效</div><div class="num text-2xl font-bold text-success mt-1">${res.filter(r=>r.status.includes('生效')).length}</div></div>
+        <div class="border border-border rounded-md p-3 ${res.filter(r=>r.publicGrade==='D').length>0?'bg-danger/5':''}"><div class="text-xs text-muted">D 级红线</div><div class="num text-2xl font-bold text-danger mt-1">${res.filter(r=>r.publicGrade==='D').length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已签字</div><div class="num text-2xl font-bold text-success mt-1">${res.filter(r=>r.signed).length}/${res.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">录像留痕</div><div class="num text-2xl font-bold text-success mt-1">${res.filter(r=>r.recorded).length}/${res.length}</div></div>
+      </div>
+    </section>
+
+    ${cur ? `
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          最新决议预览 · ${cur.id}
+        </h3>
+        <span class="text-xs num text-muted">${cur.date}</span>
+      </div>
+      <div class="p-5 grid grid-cols-2 gap-x-8 gap-y-2 text-xs">
+        <div><span class="text-muted">受评对象：</span><strong>${cur.subject}</strong></div>
+        <div><span class="text-muted">表决等级：</span>${typeof gradeBadge==='function' ? gradeBadge(cur.finalGrade) : cur.finalGrade}</div>
+        <div><span class="text-muted">投票：</span>${cur.vote}</div>
+        <div><span class="text-muted">主席：</span>${cur.chair}</div>
+      </div>
+    </section>` : ''}
+
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          历史决议
+        </h3>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2.5">决议编号</th>
+          <th class="py-2.5">议项</th>
+          <th class="py-2.5">受评对象</th>
+          <th class="py-2.5 text-center">提交</th>
+          <th class="py-2.5 text-center">表决</th>
+          <th class="py-2.5">投票</th>
+          <th class="py-2.5">主席</th>
+          <th class="py-2.5">日期</th>
+          <th class="py-2.5">状态</th>
+          <th class="py-2.5 pr-4 text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          ${res.map(r => {
+            // 反查项目 id：若 projects 中存在 subject 匹配的项目，列出"详情 →" 跳到该项目的 detail view
+            const proj = (MockData.projects || []).find(pp => pp.subject === r.subject);
+            return `
+            <tr class="hover:bg-bg ${r.publicGrade==='D'?'bg-danger/5':''}">
+              <td class="px-4 py-2.5 num text-[11px]">${r.id}</td>
+              <td class="text-xs num text-muted">${r.sessionId}</td>
+              <td class="text-sm font-medium">${r.subject}</td>
+              <td class="text-center">${typeof gradeBadge==='function' ? gradeBadge(r.proposedGrade) : r.proposedGrade}</td>
+              <td class="text-center">${typeof gradeBadge==='function' ? gradeBadge(r.finalGrade) : r.finalGrade}</td>
+              <td class="text-xs text-muted leading-snug">${r.vote}</td>
+              <td class="text-xs">${r.chair}</td>
+              <td class="text-xs num text-muted">${r.date}</td>
+              <td class="text-xs ${r.status.includes('生效')?'text-success':'text-muted'}">${r.status}</td>
+              <td class="text-right pr-4">
+                ${proj ? `<a href="committee-resolution.html?projectId=${proj.id}" class="text-xs text-brand-600 hover:underline">详情 →</a>` : '<span class="text-xs text-muted">—</span>'}
+              </td>
+            </tr>
+          `; }).join('')}
+        </tbody>
+      </table>
+    </section>
+  `;
+}
+
+function liveSession() {
+  openModal({
+    title: '会议同屏（实时）',
+    width: 'max-w-3xl',
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="bg-bg/60 border border-border rounded p-4 grid grid-cols-3 gap-3 text-xs">
+          <div><span class="text-muted">会议室：</span>上海总部 8F</div>
+          <div><span class="text-muted">主席：</span>周建华</div>
+          <div><span class="text-muted">参会：</span>6 / 6</div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="border border-border rounded p-4 bg-black text-white text-center">
+            <div class="text-xs opacity-70 mb-2">主席机位 · 实时</div>
+            <div class="aspect-video bg-gray-800 rounded flex items-center justify-center"><span class="text-4xl">🎥</span></div>
+          </div>
+          <div class="border border-border rounded p-4 bg-black text-white text-center">
+            <div class="text-xs opacity-70 mb-2">议程同屏 · 实时</div>
+            <div class="aspect-video bg-gray-800 rounded flex items-center justify-center"><span class="text-4xl">📊</span></div>
+          </div>
+        </div>
+        <div class="border border-warning/30 bg-warning/5 rounded p-3 text-xs leading-relaxed">
+          <strong class="text-warning">⚠ 会议留痕合规：</strong>
+          全程音视频录像 + 议程同屏 + 委员投票动作 → 实时哈希上链；不可篡改、不可删除；保留 ≥ 15 年。
+        </div>
+      </div>
+    `,
+    footer: '<button onclick="closeModal()" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">关闭</button>'
+  });
+}
+
+function newResolution() {
+  toast('决议书生成需在信评委投票通过后自动触发，请先到"信评委电子投票"完成投票', 'info', 3000);
+}
+
+mountLayout('committee-resolution', renderMain);
+</script>
+</body>
+</html>

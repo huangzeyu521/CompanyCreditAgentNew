@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>资料采集与核验 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 资料采集与核验（FR-B-001 / B-002 / B-009 / B-010）============== */
+function renderMain() {
+  const list = MockData.ddChecklist;
+  const sources = MockData.ddSources;
+  const received = list.filter(x => x.received).length;
+  const ratio = ((received / list.length) * 100).toFixed(0);
+  const checklistRows = list.map(it => `
+    <tr class="hover:bg-bg ${!it.received && it.required ? 'bg-warning/5' : ''}">
+      <td class="px-4 py-2 text-sm">${it.item}</td>
+      <td class="text-xs"><span class="px-1.5 py-0.5 rounded text-[10px] ${
+        it.category==='财务'?'bg-brand-100 text-brand-700':
+        it.category==='治理'?'bg-success/10 text-success':
+        it.category==='经营'?'bg-warning/10 text-warning':
+        it.category==='合规'?'bg-orange-100 text-orange-600':
+        'bg-purple-100 text-purple-600'
+      }">${it.category}</span></td>
+      <td class="text-xs text-center">${it.required ? '<span class="text-danger">必交</span>' : '<span class="text-muted">建议</span>'}</td>
+      <td class="text-xs">${it.received
+        ? `<span class="text-success">✓ 已收（${it.page} 页）</span>`
+        : '<span class="text-warning">⚠ 未收</span>'}</td>
+      <td class="text-right pr-4">
+        ${it.received
+          ? '<a href="dd-financial-ocr.html" class="text-xs text-brand-600 hover:underline">解析 →</a>'
+          : '<button onclick="toast(\'已通过邮件再次催办\',\'info\')" class="text-xs text-warning hover:underline">催办 →</button>'}
+      </td>
+    </tr>
+  `).join('');
+
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    ${(function(){
+      const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+      if (!p) {
+        return `<div class="bg-warning/10 border border-warning/30 rounded-md px-4 py-3 mb-4 text-sm text-warning flex items-center gap-2">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 9v2m0 4h.01m-6.93 1h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 17c-.77 1.33.19 3 1.73 3z"/></svg>
+          <strong>未选择项目</strong>：当前数据为通用演示，建议从 <a href="project-intake.html" class="text-brand-600 hover:underline font-medium">"我的项目"</a> 进入指定项目，查看该项目的数据。
+        </div>`;
+      }
+      return `<div class="bg-brand-50/60 border border-brand-200 rounded-md px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-2">
+        <div class="text-sm">
+          <span class="text-muted">当前项目：</span>
+          <strong class="text-brand-700">${p.subject}</strong>
+          <span class="text-xs text-muted ml-2">(${p.id} · ${p.industry || '—'})</span>
+        </div>
+        <a href="project-workbench.html?projectId=${p.id}" class="text-xs text-brand-600 hover:underline">← 返回项目工作台</a>
+      </div>`;
+    })()}
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            智能资料采集与核验
+            <span class="text-xs text-muted font-normal">FR-B-001 · B-002 · B-009 · B-010</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            按受评对象行业自动匹配方法学（${MockData.methodologies.length} 份）→ 生成资料清单与访谈提纲；从 ${sources.length} 个权威数据源一键采集；
+            外部信息与受评对象资料交叉核验。依据《信用评级业务尽职调查制度》。
+          </p>
+        </div>
+        <button onclick="askAIDD()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+
+      <!-- KPI -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">资料清单完成度</div>
+          <div class="num text-2xl font-bold text-brand-600 mt-1">${ratio}%</div>
+          <div class="h-1 mt-2 bg-bg rounded overflow-hidden"><div class="h-full bg-brand-500" style="width:${ratio}%"></div></div>
+        </div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已收 / 必交</div><div class="num text-2xl font-bold text-success mt-1">${received}/${list.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">数据源调用</div><div class="num text-2xl font-bold text-brand-700 mt-1">${sources.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">外部核验交叉点</div><div class="num text-2xl font-bold text-brand-600 mt-1">186</div></div>
+        <div class="border border-border rounded-md p-3 bg-warning/5"><div class="text-xs text-warning">待核验异常</div><div class="num text-2xl font-bold text-warning mt-1">3</div></div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-3 gap-5 mb-5">
+      <!-- 资料清单 -->
+      <div class="col-span-2 bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            资料清单（B1）
+          </h3>
+          <span class="text-xs text-muted">基于"工商企业评级方法 V03"自动生成</span>
+        </div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2">资料</th>
+            <th class="py-2">类别</th>
+            <th class="py-2 text-center">必要性</th>
+            <th class="py-2">收件状态</th>
+            <th class="py-2 pr-4 text-right">操作</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border">${checklistRows}</tbody>
+        </table>
+      </div>
+
+      <!-- 实地调研合规校验（B10）-->
+      <div class="bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            实地调研合规校验（B10）
+          </h3>
+        </div>
+        <div class="p-4 space-y-3 text-xs">
+          <div class="p-3 bg-warning/5 border border-warning/30 rounded">
+            <div class="text-warning font-semibold">⚠ 触发条件命中：首次评级</div>
+            <div class="text-muted mt-1 leading-snug">
+              依据《信用评级业务尽职调查制度》第十一条，本项目须开展实地调研，调研时间 ≥ 2 个工作日。
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-muted">触发条件 1：首次评级</span>
+              <span class="text-warning font-semibold">命中</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-muted">触发条件 2：连续评级 ≥ 1 年</span>
+              <span class="text-success">未命中</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-muted">触发条件 3：跟踪 ≥ 2 年</span>
+              <span class="text-success">未命中</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-muted">触发条件 4：项目组全部更换</span>
+              <span class="text-success">未命中</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-muted">触发条件 5：重大事项</span>
+              <span class="text-success">未命中</span>
+            </div>
+          </div>
+          <div class="pt-2 border-t border-border text-muted leading-relaxed">
+            <strong class="text-ink">调研评估意见：</strong>本项目为首次评级，须强制实地调研，调研时间 ≥ 2 个工作日，已留痕评估意见。
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 数据源采集（B2）-->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          多源资料一键采集（B2）
+        </h3>
+        <button onclick="recollect()" class="text-xs px-3 py-1 bg-brand-600 text-white rounded hover:bg-brand-700">一键再次采集</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-2 p-4">
+        ${sources.map(s => `
+          <div class="border border-border rounded p-3 hover:border-brand-300 transition-colors">
+            <div class="flex items-center justify-between gap-1 mb-1">
+              <span class="text-[11px] truncate flex-1" title="${s.name}">${s.name}</span>
+              ${s.status === 'success' ? '<span class="text-success text-[10px]">✓</span>' : '<span class="text-warning text-[10px]">!</span>'}
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-muted">
+              <span class="num">${s.fields} 字段</span>
+              <span class="num">${s.ms} ms</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="px-4 pb-4 text-[11px] text-muted border-t border-border pt-3">
+        <strong>合规说明：</strong>所有外部数据来自合法渠道；原始 JSON 留存；按 GB 32100-2015 编码；保密义务依《信用评级业务程序指引》。
+      </div>
+    </section>
+
+    <!-- 外部核验（B9）-->
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          外部信息交叉核验（B9）· 异常预警
+        </h3>
+        <span class="text-xs text-muted">186 个交叉点中 3 个异常</span>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2">字段</th>
+          <th class="py-2">受评对象提交</th>
+          <th class="py-2">外部公开</th>
+          <th class="py-2">差异</th>
+          <th class="py-2">建议</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          <tr class="bg-warning/5 hover:bg-warning/10">
+            <td class="px-4 py-2 text-xs font-medium">营业总收入 2024</td>
+            <td class="text-xs num">¥332.6 亿</td>
+            <td class="text-xs num">¥328.4 亿（年报 P12）</td>
+            <td class="text-xs num text-warning">+1.27%</td>
+            <td class="text-xs">差异 < 5%，可接受；建议在底稿留痕</td>
+          </tr>
+          <tr class="bg-danger/5 hover:bg-danger/10">
+            <td class="px-4 py-2 text-xs font-medium">对外担保金额</td>
+            <td class="text-xs num">¥8 亿</td>
+            <td class="text-xs num">¥12 亿（裁判文书 + 公告）</td>
+            <td class="text-xs num text-danger">+50%</td>
+            <td class="text-xs text-danger">重大差异 → 触发重点调查</td>
+          </tr>
+          <tr class="bg-warning/5 hover:bg-warning/10">
+            <td class="px-4 py-2 text-xs font-medium">未决诉讼标的</td>
+            <td class="text-xs num">¥0.5 亿</td>
+            <td class="text-xs num">¥0.8 亿（执行公开网）</td>
+            <td class="text-xs num text-warning">+60%</td>
+            <td class="text-xs text-warning">差异 > 30% → 建议补充访谈</td>
+          </tr>
+          <tr class="hover:bg-bg">
+            <td class="px-4 py-2 text-xs font-medium">注册资本</td>
+            <td class="text-xs num">¥120,000 万</td>
+            <td class="text-xs num">¥120,000 万</td>
+            <td class="text-xs num text-success">一致</td>
+            <td class="text-xs text-success">✓ 通过</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  `;
+}
+
+function recollect() {
+  toast('正在并发调用 10 个数据源...', 'info', 1500);
+  setTimeout(() => toast('采集完成 · 共 380 个字段', 'success'), 2200);
+}
+
+function askAIDD() {
+  const list = MockData.ddChecklist;
+  const sources = MockData.ddSources;
+  const ctx = '【当前资料清单】' + list.length + ' 项 · 已收 ' + list.filter(x=>x.received).length + ' 项\n' +
+              '【待补资料】' + (list.filter(x=>!x.received).map(x=>x.item).join(' / ') || '无') + '\n' +
+              '【数据源调用】' + sources.length + ' 个 · 异常 ' + sources.filter(s=>s.status!=='success').length + ' 个';
+  AIAgent.setScene('dd-checklist-gen');
+  AIAgent.send('请基于上述尽调资料状态：① 评估当前资料完整性（哪些缺失项最关键）② 给出待补资料的催办优先级 + 客户经理沟通话术 ③ 异常数据源（生态环境部 / ESG）的备选采集方案 ④ 实地调研建议（针对待核验异常项）⑤ 引用《尽职调查制度》对应条款。', ctx);
+}
+
+mountLayout('dd-collection', renderMain);
+</script>
+</body>
+</html>

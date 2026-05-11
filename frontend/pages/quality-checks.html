@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>违约率 · 迁移矩阵 · 利差 · 集中度 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 质量检验 4 合 1（FR-F-001 / F-002 / F-003 / F-004）============== */
+let currentTab = 'default-rate';
+function renderMain() {
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            评级质量检验
+            <span class="text-xs text-muted font-normal">FR-F-001 / F-002 / F-003 / F-004</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            按《评级结果验证和公布制度》《违约率检验制度》《评级结果质量检验制度》：
+            违约率检验（u 检验 + Shapiro-Wilk）/ 信用等级迁移矩阵 / 信用利差检验（Mann-Whitney U）/ 集中度区分度分析。
+          </p>
+        </div>
+        <button onclick="askAIQuality()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+    </section>
+
+    <!-- Tab -->
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="border-b border-border flex">
+        <button onclick="switchTab('default-rate')" class="px-4 py-2.5 text-xs ${currentTab==='default-rate'?'border-b-2 border-brand-600 text-brand-700 font-medium':'text-muted hover:text-ink'}">F1 违约率检验</button>
+        <button onclick="switchTab('migration')" class="px-4 py-2.5 text-xs ${currentTab==='migration'?'border-b-2 border-brand-600 text-brand-700 font-medium':'text-muted hover:text-ink'}">F2 迁移矩阵</button>
+        <button onclick="switchTab('spread')" class="px-4 py-2.5 text-xs ${currentTab==='spread'?'border-b-2 border-brand-600 text-brand-700 font-medium':'text-muted hover:text-ink'}">F3 信用利差</button>
+        <button onclick="switchTab('distribution')" class="px-4 py-2.5 text-xs ${currentTab==='distribution'?'border-b-2 border-brand-600 text-brand-700 font-medium':'text-muted hover:text-ink'}">F4 集中度区分度</button>
+      </div>
+      <div id="tab-content" class="p-5">${renderTab()}</div>
+    </section>
+  `;
+}
+
+function renderTab() {
+  if (currentTab === 'default-rate') return renderDefaultRate();
+  if (currentTab === 'migration') return renderMigration();
+  if (currentTab === 'spread') return renderSpread();
+  return renderDistribution();
+}
+
+function renderDefaultRate() {
+  const dr = MockData.defaultRates;
+  const rows = dr.map(r => `
+    <tr class="hover:bg-bg">
+      <td class="px-4 py-2 text-center">${gradeBadge(r.grade)}</td>
+      <td class="text-xs num text-right pr-2">${r.n}</td>
+      <td class="text-xs num text-right pr-2">${r.defaultsCnt}</td>
+      <td class="text-xs num text-right pr-2 ${r.rate>0.05?'text-danger':r.rate>0.01?'text-warning':'text-success'}">${(r.rate*100).toFixed(2)}%</td>
+      <td class="text-xs num text-muted text-right pr-4">${r.ci95}</td>
+    </tr>
+  `).join('');
+  return `
+    <div class="grid grid-cols-3 gap-5">
+      <div class="col-span-2 bg-white rounded border border-border">
+        <div class="px-4 py-2 border-b border-border text-xs font-semibold">违约率分等级（12 个月观察期）</div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2 text-center">等级</th>
+            <th class="py-2 text-right pr-2">样本</th>
+            <th class="py-2 text-right pr-2">违约</th>
+            <th class="py-2 text-right pr-2">违约率</th>
+            <th class="py-2 text-right pr-4">95% 置信区间</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border">${rows}</tbody>
+        </table>
+        <div class="px-4 py-2 border-t border-border bg-bg/40 text-[11px] text-muted">
+          <strong>检验：</strong>Shapiro-Wilk W=0.962（p=0.34，正态性满足）；u 检验 z=-1.86（p=0.063，等级单调性合规）。
+        </div>
+      </div>
+      <div class="bg-white rounded border border-border p-4">
+        <div class="text-xs font-semibold mb-2">违约率柱状图</div>
+        <div id="dr-chart" class="h-72"></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderMigration() {
+  const mm = MockData.migrationMatrix;
+  const head = mm.grades.map(g => `<th class="text-center text-[11px] py-2 px-1">→ ${g}</th>`).join('');
+  const rows = mm.rows.map(row => `
+    <tr class="hover:bg-bg">
+      <td class="px-3 py-2 text-xs font-medium text-brand-700">${row.from}</td>
+      ${row.to.map((v, i) => {
+        const isStable = mm.grades[i] === row.from;
+        const cls = isStable ? 'bg-success/15 font-semibold' : v >= 5 ? 'bg-warning/10' : '';
+        return `<td class="text-center text-[11px] num py-2 px-1 ${cls}">${v.toFixed(1)}</td>`;
+      }).join('')}
+    </tr>
+  `).join('');
+  return `
+    <div class="space-y-4">
+      <div class="text-xs text-muted leading-relaxed">
+        <strong>迁移矩阵（12 个月）</strong>：行为期初等级，列为期末等级（含违约 default）；对角线为稳定率。
+        高对角值反映等级稳定；非对角值反映迁移频率；最右列为违约率。
+      </div>
+      <div class="bg-white rounded border border-border overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-3 py-2">期初 \\ 期末</th>${head}
+          </tr></thead>
+          <tbody class="divide-y divide-border">${rows}</tbody>
+        </table>
+        <div class="px-4 py-2 border-t border-border bg-bg/40 text-[11px] text-muted">
+          <strong>稳定性评估：</strong>AAA / AA 稳定率 ≥ 88%（行业基准 85%，合规）；CCC 违约率 31.4%（高于基准 25%，需关注）。
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSpread() {
+  return `
+    <div class="grid grid-cols-3 gap-5">
+      <div class="col-span-2 bg-white rounded border border-border">
+        <div class="px-4 py-2 border-b border-border text-xs font-semibold">信用利差分等级（bp）</div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2 text-center">等级</th>
+            <th class="py-2 text-right pr-2">样本</th>
+            <th class="py-2 text-right pr-2">均值</th>
+            <th class="py-2 text-right pr-2">中位</th>
+            <th class="py-2 text-right pr-2">P25</th>
+            <th class="py-2 text-right pr-4">P75</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border">
+            ${MockData.spreads.map(s => `
+              <tr class="hover:bg-bg">
+                <td class="px-4 py-2 text-center">${gradeBadge(s.grade)}</td>
+                <td class="text-xs num text-right pr-2">${s.count}</td>
+                <td class="text-xs num text-right pr-2 font-semibold">${s.meanSpread}</td>
+                <td class="text-xs num text-right pr-2">${s.median}</td>
+                <td class="text-xs num text-right pr-2 text-muted">${s.p25}</td>
+                <td class="text-xs num text-right pr-4 text-muted">${s.p75}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="px-4 py-2 border-t border-border bg-bg/40 text-[11px] text-muted">
+          <strong>检验：</strong>Mann-Whitney U 检验各相邻等级利差差异显著（p &lt; 0.01），单调性合规。
+        </div>
+      </div>
+      <div class="bg-white rounded border border-border p-4">
+        <div class="text-xs font-semibold mb-2">利差均值与中位数</div>
+        <div id="spread-chart" class="h-80"></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderDistribution() {
+  const d = MockData.distribution;
+  return `
+    <div class="grid grid-cols-3 gap-5">
+      <div class="col-span-2 bg-white rounded border border-border">
+        <div class="px-4 py-2 border-b border-border text-xs font-semibold">行业集中度</div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2">行业</th>
+            <th class="py-2 text-right pr-2">数量</th>
+            <th class="py-2 text-right pr-2">占比</th>
+            <th class="py-2 text-center">主导等级</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border">
+            ${d.bySector.map(s => `
+              <tr class="hover:bg-bg">
+                <td class="px-4 py-2 text-sm font-medium">${s.sector}</td>
+                <td class="text-xs num text-right pr-2">${s.cnt}</td>
+                <td class="text-xs num text-right pr-2">${(s.ratio*100).toFixed(1)}%</td>
+                <td class="text-center">${gradeBadge(s.dominantGrade)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="px-4 py-2 border-t border-border bg-bg/40 text-[11px] text-muted">
+          <strong>HHI 指数：</strong>${d.distinct.hhi}（&lt; 0.25 健康，行业不集中）
+        </div>
+      </div>
+      <div class="bg-white rounded border border-border p-4">
+        <div class="text-xs font-semibold mb-3">区分度统计</div>
+        <div class="space-y-3 text-xs">
+          <div class="flex items-center justify-between">
+            <span>HHI（Herfindahl 指数）</span>
+            <span class="num font-semibold ${d.distinct.hhi<0.25?'text-success':'text-warning'}">${d.distinct.hhi}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>Gini 系数</span>
+            <span class="num font-semibold ${d.distinct.gini<0.50?'text-success':'text-warning'}">${d.distinct.gini}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>AR（CAP 曲线）</span>
+            <span class="num font-semibold ${d.distinct.ar>0.65?'text-success':'text-warning'}">${d.distinct.ar}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>KS 统计量</span>
+            <span class="num font-semibold ${d.distinct.ks>0.45?'text-success':'text-warning'}">${d.distinct.ks}</span>
+          </div>
+          <div class="pt-3 border-t border-border text-muted leading-relaxed">
+            <strong class="text-ink">结论：</strong>区分度 AR=0.78 高于行业基准 0.70，KS=0.62 高于行业基准 0.55，整体区分能力良好。
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function switchTab(t) {
+  currentTab = t;
+  document.getElementById('app').innerHTML = '';
+  mountLayout('quality-checks', renderMain);
+  setTimeout(initCharts, 50);
+}
+
+function initCharts() {
+  if (currentTab === 'default-rate') {
+    const el = document.getElementById('dr-chart');
+    if (el) {
+      const c = echarts.init(el);
+      c.setOption({
+        grid: { left:50, right:20, top:10, bottom:30 },
+        xAxis: { type:'category', data: MockData.defaultRates.map(r=>r.grade), axisLabel:{ color:'#64748B' } },
+        yAxis: { type:'value', axisLabel:{ formatter:'{value}%', color:'#64748B' } },
+        series:[{ type:'bar', data: MockData.defaultRates.map(r => (r.rate*100).toFixed(2)), itemStyle:{ color:'#2E74B5' } }]
+      });
+      window.addEventListener('resize', () => c.resize());
+    }
+  }
+  if (currentTab === 'spread') {
+    const el = document.getElementById('spread-chart');
+    if (el) {
+      const c = echarts.init(el);
+      c.setOption({
+        grid: { left:50, right:20, top:30, bottom:30 },
+        legend: { textStyle:{ color:'#64748B', fontSize:11 }, top:0 },
+        xAxis: { type:'category', data: MockData.spreads.map(s=>s.grade), axisLabel:{ color:'#64748B' } },
+        yAxis: { type:'value', name:'bp', axisLabel:{ color:'#64748B' } },
+        series:[
+          { type:'line', name:'均值', data: MockData.spreads.map(s=>s.meanSpread), itemStyle:{ color:'#2E74B5' }, smooth:true },
+          { type:'line', name:'中位', data: MockData.spreads.map(s=>s.median), itemStyle:{ color:'#16A34A' }, lineStyle:{ type:'dashed' }, smooth:true }
+        ]
+      });
+      window.addEventListener('resize', () => c.resize());
+    }
+  }
+}
+
+function askAIQuality() {
+  AIAgent.setScene('quality-explain');
+  const checks = (window.MockData && MockData.qualityChecks) || [];
+  const summary = checks.map(c => `· ${c.name}：${c.metric}=${c.value}（基准 ${c.benchmark}，状态 ${c.status}）`).join('\n');
+  AIAgent.send(
+    '请基于本季度评级质量检验结果，给出"是否需要校准评级模型"的明确判断与具体行动项。\n' +
+    '当前 4 类检验结果：\n' + (summary || '（暂无数据）') + '\n\n' +
+    '要求：\n' +
+    '1. 标注哪一项检验已触发"超出阈值"红线；\n' +
+    '2. 推断潜在的评级偏差成因（行业、宏观、方法学、数据）；\n' +
+    '3. 给出 3 项可由分析师立即执行的校准动作；\n' +
+    '4. 引用《违约率检验制度》《评级结果质量检验制度》具体条款。'
+  );
+}
+
+mountLayout('quality-checks', renderMain);
+setTimeout(initCharts, 100);
+</script>
+</body>
+</html>

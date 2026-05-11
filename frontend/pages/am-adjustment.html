@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AM 调整 / 外部支持 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== AM 评价调整 + 外部支持评估（FR-C-003 / C-004）============== */
+function renderMain() {
+  const am = MockData.amAdjustments;
+  const total = MockData.amTotalDelta.toFixed(2);
+  const ext = MockData.externalSupport;
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    ${(function(){
+      const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+      if (!p) {
+        return `<div class="bg-warning/10 border border-warning/30 rounded-md px-4 py-3 mb-4 text-sm text-warning flex items-center gap-2">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 9v2m0 4h.01m-6.93 1h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 17c-.77 1.33.19 3 1.73 3z"/></svg>
+          <strong>未选择项目</strong>：当前数据为通用演示，建议从 <a href="project-intake.html" class="text-brand-600 hover:underline font-medium">"我的项目"</a> 进入指定项目，查看该项目的数据。
+        </div>`;
+      }
+      return `<div class="bg-brand-50/60 border border-brand-200 rounded-md px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-2">
+        <div class="text-sm">
+          <span class="text-muted">当前项目：</span>
+          <strong class="text-brand-700">${p.subject}</strong>
+          <span class="text-xs text-muted ml-2">(${p.id} · ${p.industry || '—'})</span>
+        </div>
+        <a href="project-workbench.html?projectId=${p.id}" class="text-xs text-brand-600 hover:underline">← 返回项目工作台</a>
+      </div>`;
+    })()}
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            AM 评价调整 + 外部支持评估
+            <span class="text-xs text-muted font-normal">FR-C-003 · FR-C-004</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            AM 9 类调整因素：管理团队、ESG、信息披露、或有风险、风险管理、历史信用记录、预期、突发事件、监管政策；
+            每项给出建议子级调整；分析师可采纳 / 修改 / 否决并备注。外部支持评估母公司 / 政府 / 担保的支持强度。
+          </p>
+        </div>
+        <button onclick="askAIAM()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+
+      <div class="grid grid-cols-3 gap-5 mt-5">
+        <div class="border border-border rounded-lg p-4 text-center">
+          <div class="text-xs text-muted">AM 综合调整</div>
+          <div class="num text-4xl font-bold ${parseFloat(total)>0?'text-success':parseFloat(total)<0?'text-danger':'text-brand-600'} mt-2">${parseFloat(total)>0?'+':''}${total}</div>
+          <div class="text-xs text-muted mt-1">子级</div>
+        </div>
+        <div class="border border-border rounded-lg p-4 text-center">
+          <div class="text-xs text-muted">外部支持调整</div>
+          <div class="num text-4xl font-bold text-success mt-2">${ext.delta}</div>
+          <div class="text-xs text-muted mt-1">子级</div>
+        </div>
+        <div class="border-2 border-gold rounded-lg p-4 text-center bg-gradient-to-br from-yellow-50 to-amber-100 glow-gold">
+          <div class="text-xs text-gold font-semibold">个体等级 + AM + 外部支持</div>
+          <div class="num text-4xl font-bold text-gold mt-2">${MockData.gradeDerivation.finalGrade}</div>
+          <div class="text-xs text-muted mt-1">主体信用等级（待信评委审议）</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AM 9 类 -->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          AM 评价调整因素（9 类）
+        </h3>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2">编号</th>
+          <th class="py-2">调整因素</th>
+          <th class="py-2 text-center">建议</th>
+          <th class="py-2">证据要点</th>
+          <th class="py-2">来源</th>
+          <th class="py-2 pr-4 text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          ${am.map((a, i) => {
+            const d = parseFloat(a.delta);
+            const cls = d > 0 ? 'text-success' : d < 0 ? 'text-danger' : 'text-muted';
+            return `
+              <tr class="hover:bg-bg">
+                <td class="px-4 py-2 num text-[11px]">${a.code}</td>
+                <td class="text-sm font-medium">${a.name}</td>
+                <td class="text-center"><span class="num font-semibold ${cls}">${d>0?'+':''}${a.delta}</span></td>
+                <td class="text-xs text-ink/85 leading-snug">${a.evidence}</td>
+                <td class="text-xs text-muted">${a.source}</td>
+                <td class="text-right pr-4">
+                  <button onclick="amAccept(${i},this)" class="px-2 py-0.5 text-[11px] bg-success/10 text-success border border-success/30 rounded hover:bg-success hover:text-white">采纳</button>
+                  <button onclick="amModify(${i})" class="px-2 py-0.5 text-[11px] border border-border rounded hover:bg-bg">修改</button>
+                  <button onclick="amReject(${i},this)" class="px-2 py-0.5 text-[11px] border border-border rounded hover:bg-danger hover:text-white hover:border-danger">否决</button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+      <div class="px-5 py-3 border-t border-border bg-bg/40 text-[11px] text-muted">
+        合计 9 项调整：<span class="num font-semibold">${parseFloat(total)>0?'+':''}${total}</span> 子级
+      </div>
+    </section>
+
+    <!-- 外部支持 -->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          外部支持评估
+        </h3>
+      </div>
+      <div class="grid grid-cols-3 gap-4 p-5">
+        ${[
+          { ...ext.parent,    title:'母公司支持' },
+          { ...ext.govt,      title:'政府 / 行业支持' },
+          { ...ext.guarantee, title:'担保 / 增信' }
+        ].map(s => {
+          const cls = s.supportLevel === '强' ? 'border-success bg-success/5'
+                    : s.supportLevel === '中' ? 'border-warning bg-warning/5'
+                    : 'border-border';
+          return `
+            <div class="border ${cls} rounded-lg p-4">
+              <div class="text-xs font-semibold">${s.title}</div>
+              <div class="text-sm font-medium mt-1">${s.name}</div>
+              <div class="text-[10px] text-muted mt-1">${s.stake}</div>
+              <div class="mt-2 flex items-center justify-between">
+                <span class="text-xs px-1.5 py-0.5 rounded ${
+                  s.supportLevel==='强'?'bg-success/10 text-success border border-success/30':
+                  s.supportLevel==='中'?'bg-warning/10 text-warning border border-warning/30':
+                  'bg-bg text-muted border border-border'
+                }">支持力度 · ${s.supportLevel}</span>
+              </div>
+              <div class="text-[11px] text-muted mt-2 leading-snug">${s.detail}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div class="px-5 py-3 border-t border-border bg-bg/40 flex items-center justify-between text-[11px]">
+        <span class="text-muted">综合调整：母公司强支持 + 政府中支持 + 担保弱支持</span>
+        <span class="num font-semibold text-success">合计 +0.5 子级</span>
+      </div>
+    </section>
+
+    <section class="flex items-center justify-between bg-white rounded-lg shadow-card p-4">
+      <a href="bacp-scoring.html" class="text-xs px-3 py-1.5 border border-border rounded hover:bg-bg">← 返回 BACP</a>
+      <a href="fusion-engine.html" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded hover:bg-brand-700">下一步：公共信用融合 →</a>
+    </section>
+  `;
+}
+
+function amAccept(i, btn) {
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('bg-success','bg-danger','text-white'));
+  btn.classList.add('bg-success','text-white');
+  toast('已采纳', 'success', 1000);
+}
+function amReject(i, btn) {
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('bg-success','bg-danger','text-white'));
+  btn.classList.add('bg-danger','text-white');
+  toast('已否决（请填写理由）', 'warning', 1200);
+}
+function amModify(i) {
+  const a = MockData.amAdjustments[i];
+  openModal({
+    title: '调整 AM：' + a.name,
+    width: 'max-w-md',
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="text-xs text-muted">系统建议：<span class="num font-semibold">${a.delta}</span> 子级</div>
+        <div><label class="text-xs text-muted">分析师调整为</label>
+          <input type="number" step="0.25" value="${a.delta}" class="mt-1 block w-32 px-3 py-2 border border-border rounded-md text-sm" />
+        </div>
+        <div><label class="text-xs text-muted">调整理由</label>
+          <textarea rows="3" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm" placeholder="请说明调整依据，引用方法学条款..."></textarea>
+        </div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded">取消</button>
+      <button onclick="closeModal();toast('调整已留痕','success');" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">保存</button>
+    `
+  });
+}
+
+function askAIAM() {
+  const am = MockData.amAdjustments;
+  const total = MockData.amTotalDelta.toFixed(2);
+  const ext = MockData.externalSupport;
+  const ctx = '【当前主体】南京钢铁联合有限公司\n【AM 9 类调整明细】\n' +
+              am.map(a => '· ' + a.name + '：建议 ' + a.delta + ' 子级（' + a.evidence + '）').join('\n') + '\n' +
+              '【AM 合计】' + (parseFloat(total)>0?'+':'') + total + ' 子级\n' +
+              '【外部支持】' + ext.parent.name + '（' + ext.parent.supportLevel + '支持）+ ' + ext.govt.name + '（' + ext.govt.supportLevel + '）+ ' + ext.guarantee.name + '（' + ext.guarantee.supportLevel + '）';
+  AIAgent.setScene('am-explain');
+  AIAgent.send('请基于以上 AM 调整明细：① 逐项点评调整方向与幅度合理性 ② 识别 TOP3 影响最大的因素 ③ 评级师可调整的建议（哪些因素应上调/下调）+ 调整理由 ④ 引用《信用评级方法规则》对应章节。', ctx);
+}
+
+mountLayout('am-adjustment', renderMain);
+</script>
+</body>
+</html>

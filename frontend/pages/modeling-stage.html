@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>③ 评级建模（聚合工作台）· CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== ③ 评级建模 阶段聚合工作台
+ * 远东方法学三层架构：BACP 基本信用 + AM 评价调整 + 外部支持 → 主体信用等级
+ * 双轨融合：公共信用 ABCD（GB/T 45255-2025）↔ 远东 AAA-C（三等九级）
+ * ==================================================================== */
+function renderMain() {
+  const composite = MockData.bacpComposite;
+  const amTotal = MockData.amTotalDelta.toFixed(2);
+  const ext = MockData.externalSupport;
+  const g = MockData.gradeDerivation;
+  return `
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="num text-2xl text-brand-600 font-bold">③</span>
+            评级建模 · 阶段工作台
+            <span class="text-xs text-muted font-normal ml-2">远东方法学 · BACP + AM + 外部支持</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            评级业务的<strong>方法学核心</strong>。完成<strong>BACP 4 维评分（业务 / 盈利 / 偿付 / 流动性）→ AM 9 类调整 → 外部支持评估 →
+            公共信用融合（双轨）→ 等级映射（含情景测试）→ 同业对标</strong>等动作，得出 ASCP 个体等级 + 主体信用等级建议。
+          </p>
+        </div>
+        <button onclick="askAIModel()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手解读方法学</button>
+      </div>
+
+      <!-- 三层等级推导链 -->
+      <div class="mt-5 grid grid-cols-7 gap-2 items-center">
+        <div class="border border-border rounded-lg p-3 text-center">
+          <div class="text-[10px] text-muted">BACP 综合</div>
+          <div class="num text-xl font-bold text-brand-600 mt-1">${composite}</div>
+          <div class="text-[10px] text-muted">/ 8</div>
+        </div>
+        <div class="text-center text-2xl text-muted">→</div>
+        <div class="border border-border rounded-lg p-3 text-center bg-bg/40">
+          <div class="text-[10px] text-muted">个体等级</div>
+          <div class="num text-xl font-bold text-success mt-1">${g.bacpGrade}</div>
+        </div>
+        <div class="text-center text-2xl text-muted">+</div>
+        <div class="border border-border rounded-lg p-3 text-center">
+          <div class="text-[10px] text-muted">AM 调整</div>
+          <div class="num text-xl font-bold ${parseFloat(amTotal)>0?'text-success':'text-warning'} mt-1">${parseFloat(amTotal)>0?'+':''}${amTotal}</div>
+        </div>
+        <div class="text-center text-2xl text-muted">+</div>
+        <div class="border-2 border-gold rounded-lg p-3 text-center bg-gradient-to-br from-yellow-50 to-amber-100 glow-gold">
+          <div class="text-[10px] text-gold font-semibold">主体等级</div>
+          <div class="num text-xl font-bold text-gold mt-1">${g.finalGrade}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 个子工作台 -->
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
+      ${[
+        { href:'bacp-scoring.html',   title:'BACP 智能评分',     desc:'4 一级要素（业务 30% / 盈利 25% / 偿付 25% / 流动性 20%）+ 二级指标 8 档阈值打分', icon:'📊', kpi:`综合 ${composite}/8` },
+        { href:'am-adjustment.html',  title:'AM 调整 / 外部支持', desc:'9 类调整因素 · 管理 / ESG / 信披 / 或有 / 风控 / 历史 / 预期 / 突发 / 监管', icon:'⚙️', kpi:`合计 ${parseFloat(amTotal)>0?'+':''}${amTotal} 子级` },
+        { href:'fusion-engine.html',  title:'公共信用融合引擎',   desc:'GB/T 45255-2025 + GB/T 45255-2025 · D 级红线一票否决', icon:'🔀', kpi:'ABCD ↔ AAA-C 映射' },
+        { href:'grade-mapping.html',  title:'等级映射 / 情景测试', desc:'BACP + AM + 外部支持 → 主体信用等级 · 含基本 / 乐观 / 压力 / 极端压力 4 档情景', icon:'📈', kpi:`映射至 ${g.finalGrade}` },
+        { href:'peer-benchmark.html', title:'同业对标',           desc:'可比同业筛选 · 财务 / 经营 / ESG 5 维度对标 · 行业地位判断', icon:'⚖️', kpi:'5 家同业对比' },
+        { href:'methodology-rag.html',title:'方法学知识库（RAG）',desc:'远东 200+ 份方法学私有 RAG 问答 · 原文页码段落级溯源', icon:'📚', kpi:'200+ 份方法学' }
+      ].map(c => `
+        <a href="${c.href}" class="block border border-border rounded-lg p-5 hover:border-brand-300 hover:bg-brand-50/30 hover:shadow-card transition-all">
+          <div class="text-3xl mb-2">${c.icon}</div>
+          <div class="text-base font-semibold text-brand-700">${c.title}</div>
+          <div class="text-xs text-muted leading-snug mt-2">${c.desc}</div>
+          <div class="flex items-center justify-between mt-3 pt-3 border-t border-border">
+            <span class="text-xs text-muted">${c.kpi}</span>
+            <span class="text-xs text-brand-600 hover:underline">进入工作台 →</span>
+          </div>
+        </a>
+      `).join('')}
+    </section>
+
+    <!-- 阶段流转 -->
+    <section class="flex items-center justify-between bg-bg/40 border border-border rounded-lg p-4">
+      <a href="dd-stage.html" class="text-xs text-brand-600 hover:underline">← 上一阶段：② 尽职调查</a>
+      <a href="review-stage.html" class="text-xs px-4 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700 flex items-center gap-1">
+        下一阶段：④ 报告与审核
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+      </a>
+    </section>
+  `;
+}
+
+function askAIModel() {
+  const composite = MockData.bacpComposite;
+  const am = MockData.amTotalDelta.toFixed(2);
+  const g = MockData.gradeDerivation;
+  const ctx = '【当前主体】南京钢铁联合\n【三层推导】BACP ' + composite + '/8 → 个体 ' + g.bacpGrade + ' → AM ' + (parseFloat(am)>0?'+':'') + am + ' → 外部支持 +' + g.externalDelta + ' → 主体等级 ' + g.finalGrade;
+  AIAgent.setScene('rating-draft');
+  AIAgent.send('请基于以上三层推导：① 评分链合理性总检（BACP / AM / 外部支持是否相互印证）② 风险关注点 TOP3 ③ 评级展望建议（正面/稳定/负面）④ 与同业可比主体的 1 句话差异 ⑤ 给评级师的最终评级建议（含展望）。', ctx);
+}
+
+mountLayout('modeling-stage', renderMain);
+</script>
+</body>
+</html>

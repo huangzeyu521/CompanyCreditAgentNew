@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>信评委议程包 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 信评委议程包（FR-D-005）============== */
+function renderMain() {
+  const a = MockData.committeeAgenda;
+  const t = MockData.committeeAgendaToday;
+  const rows = a.map(it => `
+    <tr class="hover:bg-bg ${it.publicGrade==='D'?'bg-danger/5':''}">
+      <td class="px-4 py-2.5 num text-xs">${it.id}</td>
+      <td class="text-sm font-medium">${it.subject}</td>
+      <td class="text-xs">${it.type}</td>
+      <td>${gradeBadge(it.proposedGrade)}</td>
+      <td>${publicGradeBadge(it.publicGrade)}</td>
+      <td class="text-xs ${it.risk==='高'?'text-danger':it.risk==='中'?'text-warning':'text-success'}">${it.risk}</td>
+      <td class="text-xs leading-snug max-w-md">${it.focus}</td>
+      <td class="text-xs">${it.decision}</td>
+      <td class="text-right pr-4">
+        <a href="committee-vote.html?id=${it.id}" class="text-xs text-brand-600 hover:underline">投票 →</a>
+      </td>
+    </tr>
+  `).join('');
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            信评委议程包
+            <span class="text-xs text-muted font-normal">FR-D-005 · 编号 ${t.sessionId}</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            一键生成信评委议程包：包含评级建议、关键证据、负面记录、公共信用摘要、对比同业、ESG 摘要等。
+            ${t.when} · ${t.location} · 主席：${t.chair} · 委员 ${t.members} 人 · ${t.items} 个议项
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="askAIAgenda()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 生成议程摘要</button>
+          <button onclick="downloadAgenda()" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700">导出议程包 PDF</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">议项数</div><div class="num text-2xl font-bold text-brand-600 mt-1">${t.items}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">参会委员</div><div class="num text-2xl font-bold text-brand-700 mt-1">${t.members}</div></div>
+        <div class="border border-border rounded-md p-3 ${a.find(x=>x.publicGrade==='D')?'bg-danger/5 border-danger/30':''}"><div class="text-xs ${a.find(x=>x.publicGrade==='D')?'text-danger':'text-muted'}">D 级红线议项</div><div class="num text-2xl font-bold ${a.find(x=>x.publicGrade==='D')?'text-danger':'text-success'} mt-1">${a.filter(x=>x.publicGrade==='D').length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">高风险议项</div><div class="num text-2xl font-bold text-warning mt-1">${a.filter(x=>x.risk==='高').length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">议程包页数</div><div class="num text-2xl font-bold text-brand-600 mt-1">218</div></div>
+      </div>
+    </section>
+
+    <!-- 议项列表 -->
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          议项清单
+        </h3>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2">议项</th>
+          <th class="py-2">主体</th>
+          <th class="py-2">类型</th>
+          <th class="py-2">拟定等级</th>
+          <th class="py-2">公共信用</th>
+          <th class="py-2">风险</th>
+          <th class="py-2">关键关注点</th>
+          <th class="py-2">决议</th>
+          <th class="py-2 pr-4 text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">${rows}</tbody>
+      </table>
+    </section>
+
+    <!-- 议程包结构示例（5 分钟决策包）-->
+    <section class="bg-white rounded-lg shadow-card mt-5">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          议项 A-2026-018 · 5 分钟决策包（自动生成）
+        </h3>
+      </div>
+      <div class="grid grid-cols-3 gap-5 p-5 text-xs">
+        <div class="border border-border rounded p-3 leading-relaxed">
+          <div class="font-medium mb-2 text-brand-700">主体 + 行业 + 评级类型 + 拟定等级</div>
+          <div>南京钢铁联合有限公司</div>
+          <div class="text-muted mt-0.5">钢铁制造（C31）· 主体跟踪</div>
+          <div class="num text-lg font-bold text-brand-600 mt-2">AA- · 稳定</div>
+        </div>
+        <div class="border border-border rounded p-3 leading-relaxed">
+          <div class="font-medium mb-2 text-success">关键风险缓释 3 条</div>
+          <ul class="space-y-1 text-ink/85">
+            <li>1. 母公司强支持（AAA 级）</li>
+            <li>2. 银行授信备用充足（演示样例）</li>
+            <li>3. ESG 与安全生产稳健</li>
+          </ul>
+        </div>
+        <div class="border border-border rounded p-3 leading-relaxed">
+          <div class="font-medium mb-2 text-warning">关键风险点 3 条</div>
+          <ul class="space-y-1 text-ink/85">
+            <li>1. 存在短期融资券集中到期（演示样例）</li>
+            <li>2. 对外担保 ¥12 亿</li>
+            <li>3. 历史信用：1 次延付记录</li>
+          </ul>
+        </div>
+        <div class="col-span-3 border border-brand-100 bg-brand-50 rounded p-3 text-xs leading-relaxed">
+          <strong class="text-brand-700">与上期差异：</strong>评级与上期一致（AA- 稳定）；展望保持。本期新增：环保整改完成、新能源转型加速。
+        </div>
+        <div class="col-span-3 p-3 border border-border rounded">
+          <div class="font-medium mb-1">合规提醒</div>
+          <ul class="text-ink/85 space-y-1 leading-relaxed">
+            <li>· 项目组成员王明远已声明回避（与子公司有关联）</li>
+            <li>· 公共信用 B 级，未触发 D 级红线</li>
+            <li>· 三级审核已完整通过；评级总监周建华已签字</li>
+          </ul>
+        </div>
+        <div class="col-span-3 p-3 bg-bg/60 rounded">
+          <div class="font-medium mb-1">投票建议项</div>
+          <div class="flex gap-3 text-xs">
+            <span class="px-2 py-1 bg-success/10 text-success border border-success/30 rounded">通过</span>
+            <span class="px-2 py-1 bg-brand-100 text-brand-700 border border-brand-200 rounded">通过-保留意见</span>
+            <span class="px-2 py-1 bg-warning/10 text-warning border border-warning/30 rounded">驳回</span>
+            <span class="px-2 py-1 bg-danger/10 text-danger border border-danger/30 rounded">复议</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function downloadAgenda() {
+  toast('议程包 PDF 生成中（含 218 页与所有附件）...', 'info', 1500);
+  setTimeout(() => toast('议程包 PDF 已下载', 'success'), 1800);
+}
+
+function askAIAgenda() {
+  const a = MockData.committeeAgenda;
+  const ctx = '【本期信评委议项】\n' +
+              a.map(it => '· ' + it.id + ' ' + it.subject + '：' + it.type + ' · 拟定 ' + it.proposedGrade + ' · 公共信用 ' + it.publicGrade + ' · 风险 ' + it.risk + ' · 关注：' + it.focus).join('\n');
+  AIAgent.setScene('committee-agenda');
+  AIAgent.send('请基于本次 3 个议项：① 每个议项 5 分钟决策包（主体+行业+评级类型+拟定等级+关键风险 3 条+关键缓释 3 条+合规提醒+投票建议项）② 红线议项专项提醒 ③ 委员关注重点。', ctx);
+}
+
+mountLayout('committee-agenda', renderMain);
+</script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>信用修复联动 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 信用修复联动工作台
+ * 政策依据：GB/T 45255-2025 第十条 + 国办发〔2025〕22 号
+ * 闭环：信用中国推送 → 评级师确认 → 自动触发跟踪评级 → 免费通知客户 → 多渠道更新披露
+ * ==================================================================== */
+function renderMain() {
+  const events = MockData.creditRepairEvents;
+  const pending = events.filter(e => e.status === '待评级师确认');
+  const triggered = events.filter(e => e.reratingTriggered);
+  const completed = events.filter(e => e.status.includes('已重新评级'));
+  return `
+    <!-- 政策依据声明 -->
+    <div class="bg-brand-50 border-l-4 border-brand-600 rounded-md px-4 py-3 mb-4 text-xs leading-relaxed">
+      <div class="flex items-start gap-2">
+        <span class="text-brand-600 font-bold">📜 政策落地</span>
+        <div class="flex-1 text-ink/85">
+          <strong>GB/T 45255-2025 第十条：</strong>"信用中国"网站与第三方机构建立信用修复结果共享机制，
+          <strong class="text-brand-700">第三方机构应当同步更新企业信用信息，并依据更新后的信息对企业进行信用评价</strong>。
+          具体修复工作依照《关于进一步完善信用修复制度的实施方案》（国办发〔2025〕22 号）执行。
+        </div>
+      </div>
+    </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            信用修复联动工作台
+            <span class="text-xs text-muted font-normal ml-2">P0 · 第十条政策落地</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            统一接收来自<strong>信用中国 / 全国信用信息共享平台</strong>推送的修复通知，按
+            "<strong>谁认定、谁修复</strong>"原则核对修复源 → 评级师确认 → 自动触发跟踪评级流程 →
+            <strong class="text-success">免费通知客户</strong>（《GB/T 45255-2025》第十一条要求）→ 多渠道更新披露。
+          </p>
+        </div>
+        <button onclick="askAIRepair()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手 · 修复影响评估</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本月修复事件</div><div class="num text-2xl font-bold text-brand-600 mt-1">${events.length}</div></div>
+        <div class="border border-border rounded-md p-3 ${pending.length>0?'bg-warning/5':''}"><div class="text-xs text-warning">待评级师确认</div><div class="num text-2xl font-bold text-warning mt-1">${pending.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已触发重新评级</div><div class="num text-2xl font-bold text-brand-700 mt-1">${triggered.length}</div></div>
+        <div class="border border-border rounded-md p-3 bg-success/5"><div class="text-xs text-success">已结案 + 通知</div><div class="num text-2xl font-bold text-success mt-1">${completed.length}</div></div>
+        <div class="border border-border rounded-md p-3 bg-success/5"><div class="text-xs text-success">免费率</div><div class="num text-2xl font-bold text-success mt-1">100%</div></div>
+      </div>
+    </section>
+
+    <!-- 联动闭环流程 -->
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        修复联动闭环（7 步）
+      </h3>
+      <div class="grid grid-cols-7 gap-2 items-center text-center text-xs">
+        ${[
+          ['①','客户提修复','信用中国网站申请'],
+          ['②','谁认定谁修复','行业主管部门审核'],
+          ['③','信用中国推送','共享平台 → 远东'],
+          ['④','评级师确认','本工作台'],
+          ['⑤','重新评级','跟踪评级流程'],
+          ['⑥','免费通知客户','客户门户'],
+          ['⑦','更新披露','多渠道同步']
+        ].map((s, i, arr) => `
+          <div class="flex items-center gap-1">
+            <div class="border ${i<3?'border-brand-200 bg-brand-50':i===3?'border-warning/30 bg-warning/5':'border-success/30 bg-success/5'} rounded-lg p-3 flex-1">
+              <div class="num text-base font-bold ${i<3?'text-brand-600':i===3?'text-warning':'text-success'}">${s[0]}</div>
+              <div class="text-xs font-medium mt-1">${s[1]}</div>
+              <div class="text-[10px] text-muted leading-snug mt-0.5">${s[2]}</div>
+            </div>
+            ${i < arr.length - 1 ? '<span class="text-muted">→</span>' : ''}
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <!-- 修复事件列表 -->
+    <section class="bg-white rounded-lg shadow-card mb-5">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          修复事件清单（${events.length} 项）
+        </h3>
+        <select class="text-xs px-2 py-1 border border-border rounded">
+          <option>全部状态</option><option>待确认</option><option>已触发</option><option>已结案</option>
+        </select>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2.5">编号</th>
+          <th class="py-2.5">受评对象</th>
+          <th class="py-2.5">修复类型</th>
+          <th class="py-2.5">修复部门（"谁认定谁修复"）</th>
+          <th class="py-2.5 text-center">修复前</th>
+          <th class="py-2.5 text-center">修复后</th>
+          <th class="py-2.5">推送时间</th>
+          <th class="py-2.5">联动状态</th>
+          <th class="py-2.5 text-center">免费</th>
+          <th class="py-2.5 pr-4 text-right">操作</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          ${events.map(e => {
+            const cls = e.status==='待评级师确认' ? 'bg-warning/10 text-warning border-warning/30'
+                      : e.status==='已触发跟踪评级' ? 'bg-brand-100 text-brand-700 border-brand-200'
+                      : 'bg-success/10 text-success border-success/30';
+            return `
+              <tr class="hover:bg-bg ${e.status==='待评级师确认'?'bg-warning/5':''}">
+                <td class="px-4 py-2.5 num text-[11px]">${e.id}</td>
+                <td class="text-sm font-medium">${e.subject}</td>
+                <td class="text-xs leading-snug">${e.repairType}</td>
+                <td class="text-xs text-muted">${e.repairDept}<br/><span class="text-[10px]">认定/修复日：<span class="num">${e.repairDate}</span></span></td>
+                <td class="text-center">${publicGradeBadge(e.publicGradeBefore)}</td>
+                <td class="text-center">${publicGradeBadge(e.publicGradeAfter)}</td>
+                <td class="text-xs num text-muted">${e.notifyAt}</td>
+                <td><span class="text-xs px-1.5 py-0.5 rounded-full border ${cls}">${e.status}</span></td>
+                <td class="text-center">${e.freeNotify ? '<span class="text-success text-xs font-semibold">✓ 免费</span>' : '<span class="text-danger text-xs">✗</span>'}</td>
+                <td class="text-right pr-4">
+                  ${e.status==='待评级师确认'
+                    ? '<button onclick="confirmRepair(\''+e.id+'\')" class="text-xs px-2 py-0.5 bg-brand-600 text-white rounded hover:bg-brand-700">确认 + 联动 →</button>'
+                    : '<button onclick="viewRepair(\''+e.id+'\')" class="text-xs text-brand-600 hover:underline">详情 →</button>'}
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 合规要点 -->
+    <section class="grid grid-cols-2 gap-5">
+      <div class="bg-success/5 border border-success/30 rounded-lg p-4 text-xs leading-relaxed">
+        <div class="font-semibold text-success mb-2">✓ 合规要点（必做）</div>
+        <ul class="space-y-1.5">
+          <li>· "谁认定、谁修复" 原则核对 → 修复部门必须是原失信信息认定部门</li>
+          <li>· 收到推送 5 工作日内必须响应（评级师确认 / 不予采纳并说明理由）</li>
+          <li>· 自动触发跟踪评级（不定期跟踪程序）</li>
+          <li>· <strong>免费通知客户</strong>：依据第十一条不得以更正为由收费</li>
+          <li>· 评级有效期内修复 → 自动更新等级 + 多渠道公告</li>
+          <li>· 全程留痕审计链（推送时点 / 确认时点 / 重新评级 / 通知 / 披露）</li>
+        </ul>
+      </div>
+      <div class="bg-warning/5 border border-warning/30 rounded-lg p-4 text-xs leading-relaxed">
+        <div class="font-semibold text-warning mb-2">⚠ 评级师评估要点</div>
+        <ul class="space-y-1.5">
+          <li>· 修复事件是否真正影响主体偿债能力（不是所有修复都需调级）</li>
+          <li>· 修复后是否仍有<strong>未结清失信</strong>（需在跟踪报告说明）</li>
+          <li>· 重新评级是否触发"D 级红线解除"（公共信用从 D 修复到 C+）</li>
+          <li>· 是否需要召开<strong>不定期信评委</strong>（重大调级）</li>
+          <li>· 委员会审议结果是否回写到信用中国</li>
+        </ul>
+      </div>
+    </section>
+  `;
+}
+
+function confirmRepair(id) {
+  const e = MockData.creditRepairEvents.find(x => x.id === id);
+  if (!e) return;
+  openModal({
+    title: '修复确认 + 触发跟踪评级',
+    width: 'max-w-2xl',
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="border border-border rounded p-3 bg-bg/40 grid grid-cols-2 gap-3 text-xs">
+          <div><span class="text-muted">主体：</span><strong>${e.subject}</strong></div>
+          <div><span class="text-muted">修复类型：</span>${e.repairType}</div>
+          <div><span class="text-muted">修复部门：</span>${e.repairDept}</div>
+          <div><span class="text-muted">修复日：</span><span class="num">${e.repairDate}</span></div>
+          <div><span class="text-muted">公共信用变化：</span>${e.publicGradeBefore} → ${e.publicGradeAfter}</div>
+          <div><span class="text-muted">推送时间：</span><span class="num">${e.notifyAt}</span></div>
+        </div>
+        <div class="border border-success/30 bg-success/5 rounded p-3 text-xs">
+          <strong class="text-success">"谁认定、谁修复"原则校验通过</strong>
+          <div class="text-muted mt-1">修复部门 ${e.repairDept} 与原失信信息认定部门一致 ✓</div>
+        </div>
+        <div><label class="text-xs text-muted">评级师判定 <span class="text-danger">*</span></label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm">
+            <option selected>触发不定期跟踪评级（建议）</option>
+            <option>待人工评估后再决定</option>
+            <option>不影响评级（说明理由）</option>
+          </select>
+        </div>
+        <div><label class="text-xs text-muted">评估意见</label>
+          <textarea rows="2" class="mt-1 block w-full px-3 py-2 border border-border rounded-md text-sm" placeholder="可选：补充评估理由..."></textarea>
+        </div>
+        <div class="border border-warning/30 bg-warning/5 rounded p-3 text-xs leading-relaxed">
+          <strong class="text-warning">⚠ 合规提醒：</strong>本次修复联动产生的重新评级<strong>不得向客户额外收取费用</strong>（《GB/T 45255-2025》第十一条）；客户通知短信将明示"免费"。
+        </div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded">取消</button>
+      <button onclick="closeModal();toast('已触发跟踪评级 + 免费通知客户 + 多渠道更新披露','success',3000);setTimeout(()=>location.href='tracking.html',1500)" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">确认 + 联动</button>
+    `
+  });
+}
+function viewRepair(id) {
+  const e = MockData.creditRepairEvents.find(x => x.id === id);
+  if (!e) return;
+  openModal({
+    title: '修复详情 · ' + e.id,
+    width: 'max-w-lg',
+    content: `
+      <div class="space-y-2 text-sm">
+        <div><span class="text-muted">主体：</span>${e.subject}</div>
+        <div><span class="text-muted">修复类型：</span>${e.repairType}</div>
+        <div><span class="text-muted">修复部门：</span>${e.repairDept}</div>
+        <div><span class="text-muted">公共信用：</span>${e.publicGradeBefore} → ${e.publicGradeAfter}</div>
+        <div><span class="text-muted">联动状态：</span>${e.status}</div>
+        <div><span class="text-muted">免费通知：</span>${e.freeNotify?'✓ 是（合规）':'✗ 否（违规）'}</div>
+        <div class="border-t border-border pt-2 text-[11px] text-muted leading-relaxed">
+          联动全程审计链留痕，对应GB/T 45255-2025第十条 + 第十一条。
+        </div>
+      </div>
+    `,
+    footer: '<button onclick="closeModal()" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">关闭</button>'
+  });
+}
+function askAIRepair() {
+  const events = MockData.creditRepairEvents;
+  const pending = events.filter(e => e.status === '待评级师确认');
+  const ctx = '【本月修复事件】' + events.length + ' 项\n【待评级师确认】' + pending.length + ' 项\n' +
+              pending.map(e => '· ' + e.subject + '（' + e.repairType + '）' + e.publicGradeBefore + '→' + e.publicGradeAfter).join('\n');
+  AIAgent.setScene('repair-path');
+  AIAgent.send('请基于以上修复事件：① 逐条评估对评级的实际影响（建议立即重评 / 计入下次跟踪 / 不影响）② "谁认定谁修复"原则核对 ③ 重新评级建议子级 ④ 给客户的免费通知模板（80 字内）⑤ 引用GB/T 45255-2025第十、十一条。', ctx);
+}
+
+mountLayout('credit-repair-sync', renderMain);
+</script>
+</body>
+</html>

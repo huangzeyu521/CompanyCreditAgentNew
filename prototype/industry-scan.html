@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>行业风险扫描 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/mock-data.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/layout.js"></script>
+<script>
+function renderMain() {
+  return `
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <h1 class="text-lg font-semibold flex items-center gap-2 mb-4">
+        <span class="w-1 h-5 bg-brand-600 rounded"></span>
+        行业风险扫描 · 批量主体分析
+      </h1>
+      <p class="text-sm text-muted mb-5">支持按行业 / 按区域 / 上传主体清单 CSV，输出行业信用分布热力图与 TOP 风险主体清单。</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div>
+          <label class="text-xs text-muted">扫描场景</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">
+            <option selected>按行业扫描</option>
+            <option>按区域扫描</option>
+            <option>上传主体清单（CSV）</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-muted">行业</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">
+            <option>钢铁制造（C31）</option>
+            <option>城投（L70）</option>
+            <option>房地产（K70）</option>
+            <option>新能源（D44）</option>
+            <option>医药（C27）</option>
+          </select>
+        </div>
+        <div class="flex items-end">
+          <button onclick="toast('正在扫描钢铁行业 145 个主体...','info',2000)" class="w-full px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700 text-sm">🔍 开始扫描</button>
+        </div>
+      </div>
+
+      <!-- 概览 KPI -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+        <div class="border border-border rounded p-3"><div class="text-xs text-muted">扫描主体</div><div class="num text-xl font-semibold text-brand-600 mt-1">145</div></div>
+        <div class="border border-border rounded p-3 bg-success/5"><div class="text-xs text-success">A级及以上</div><div class="num text-xl font-semibold text-success mt-1">22</div></div>
+        <div class="border border-border rounded p-3 bg-warning/5"><div class="text-xs text-warning">B/BB级</div><div class="num text-xl font-semibold text-warning mt-1">68</div></div>
+        <div class="border border-orange-200 rounded p-3 bg-orange-50"><div class="text-xs text-orange-600">C级及以下</div><div class="num text-xl font-semibold text-orange-600 mt-1">50</div></div>
+        <div class="border border-danger/30 rounded p-3 bg-danger/5"><div class="text-xs text-danger">D级熔断</div><div class="num text-xl font-semibold text-danger mt-1">5</div></div>
+      </div>
+
+      <!-- 区域信用热力图 + 行业评级趋势 双图 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+        <div class="border border-border rounded-lg p-4">
+          <div class="text-sm font-semibold mb-2 flex items-center justify-between">
+            <span>区域信用风险热度（重点省份）</span>
+            <span class="text-[10px] text-muted">D级 + C级主体数</span>
+          </div>
+          <div id="regionChart" class="h-56"></div>
+        </div>
+        <div class="border border-border rounded-lg p-4">
+          <div class="text-sm font-semibold mb-2">行业平均评级 12 个月趋势</div>
+          <div id="industryTrendChart" class="h-56"></div>
+        </div>
+      </div>
+
+      <!-- 主体分布图 + TOP 风险 -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+        <div class="lg:col-span-2 border border-border rounded-lg p-4">
+          <div class="text-sm font-semibold mb-3">行业信用等级分布</div>
+          <div id="distChart" class="h-72"></div>
+        </div>
+        <div class="border border-border rounded-lg p-4">
+          <div class="text-sm font-semibold mb-3 flex items-center justify-between"><span>TOP 5 风险主体</span><span class="text-xs text-muted">钢铁行业</span></div>
+          <ol class="space-y-2">
+            ${[
+              { rank:1, name:'华东建材有限公司', grade:'D', score:220, fused:true },
+              { rank:2, name:'XX 重工 (山西)',  grade:'CCC', score:580 },
+              { rank:3, name:'XX 钢厂 (河北)',  grade:'CC',  score:520 },
+              { rank:4, name:'XX 冶金 (内蒙古)', grade:'C',   score:420 },
+              { rank:5, name:'XX 钢铁 (江苏)',  grade:'C',   score:380 }
+            ].map(r => `
+              <li class="flex items-center gap-2 text-sm hover:bg-bg p-2 rounded ${r.fused ? 'bg-danger/5' : ''}">
+                <span class="w-5 h-5 rounded-full bg-bg text-muted text-xs flex items-center justify-center">${r.rank}</span>
+                <span class="flex-1 truncate">${r.name}</span>
+                ${gradeBadge(r.grade, { withFuse: !!r.fused })}
+                <span class="num text-xs text-muted">${r.score}</span>
+              </li>
+            `).join('')}
+          </ol>
+        </div>
+      </div>
+
+      <!-- 熔断主体专列 -->
+      <div class="border-2 border-danger/30 bg-danger/5 rounded-lg p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-base">🚨</span>
+          <h3 class="text-sm font-semibold text-danger">D 级熔断主体（5）</h3>
+          <span class="text-xs text-muted">建议立即启动跟踪评级 / 复核现有评级</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          ${['华东建材有限公司','XX 钢业（江苏）','XX 重型机械（河南）','XX 冶炼（云南）','XX 焦化（山西）'].map(n => `
+            <div class="bg-white rounded p-3 border border-danger/30 flex items-center justify-between">
+              <div class="text-sm font-medium truncate">${n}</div>
+              <a href="subject-rating.html?subject=${encodeURIComponent(n)}" class="text-xs text-danger hover:underline ml-2">复核 →</a>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="mt-4 text-right">
+        <button onclick="toast('已导出行业扫描报告','success')" class="text-xs px-4 py-1.5 border border-border rounded-md hover:bg-bg">导出 Excel</button>
+        <button onclick="toast('已开始批量评级任务','success')" class="text-xs px-4 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700">📋 批量启动评级</button>
+      </div>
+    </section>
+  `;
+}
+
+mountLayout('industry-scan', renderMain);
+
+// 各种图表
+setTimeout(() => {
+  // 区域热度（横向柱状）
+  const rg = document.getElementById('regionChart');
+  if (rg) {
+    const c = echarts.init(rg);
+    const regions = ['广东','浙江','江苏','山东','北京','上海','河北','四川'];
+    c.setOption({
+      tooltip: { trigger: 'axis', formatter: '{b}: {c} 家高风险主体' },
+      grid: { left: 50, right: 30, top: 10, bottom: 25 },
+      xAxis: { type: 'value', axisLine: { show: false }, splitLine: { lineStyle: { color: '#F1F5F9' } } },
+      yAxis: { type: 'category', data: regions.reverse(), axisLine: { show: false }, axisLabel: { fontSize: 11 } },
+      series: [{
+        type: 'bar',
+        data: [12, 10, 18, 8, 5, 6, 22, 14].reverse().map((v, i) => ({
+          value: v,
+          itemStyle: { color: v >= 18 ? '#DC2626' : v >= 12 ? '#F59E0B' : '#4A90E2', borderRadius: [0,3,3,0] }
+        })),
+        label: { show: true, position: 'right', fontSize: 10 },
+        barWidth: '60%'
+      }]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+
+  // 行业 12 月趋势
+  const it = document.getElementById('industryTrendChart');
+  if (it) {
+    const c = echarts.init(it);
+    c.setOption({
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['钢铁','房地产','新能源'], textStyle:{fontSize:11}, top: 0 },
+      grid: { left: 35, right: 15, top: 30, bottom: 25 },
+      xAxis: { type: 'category', data: ['25-05','06','07','08','09','10','11','12','26-01','02','03','04'], axisLabel: { fontSize: 9 } },
+      yAxis: { type: 'value', name: '平均分', min: 600, max: 900, axisLine: { show: false }, splitLine: { lineStyle: { color: '#F1F5F9' } } },
+      series: [
+        { name:'钢铁',   type:'line', smooth:true, data:[750,748,745,742,738,735,732,728,725,722,720,718], itemStyle:{color:'#94A3B8'} },
+        { name:'房地产', type:'line', smooth:true, data:[700,690,685,680,672,665,660,650,640,635,628,620], itemStyle:{color:'#DC2626'} },
+        { name:'新能源', type:'line', smooth:true, data:[820,825,830,835,840,842,845,848,852,855,858,862], itemStyle:{color:'#16A34A'} }
+      ]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+
+  const el = document.getElementById('distChart');
+  if (!el) return;
+  const ch = echarts.init(el);
+  ch.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { left: 40, right: 20, top: 30, bottom: 40 },
+    xAxis: { type: 'category', data: ['AAA','AA','A','BBB','BB','B','CCC','CC','C','D'], axisLine: { lineStyle: { color: '#CBD5E1' } } },
+    yAxis: { type: 'value', name: '主体数量', axisLine: { show: false }, splitLine: { lineStyle: { color: '#F1F5F9' } } },
+    series: [{
+      type: 'bar',
+      data: [
+        { value: 5, itemStyle: { color: '#16A34A' } },
+        { value: 8, itemStyle: { color: '#16A34A' } },
+        { value: 9, itemStyle: { color: '#16A34A' } },
+        { value: 18, itemStyle: { color: '#F59E0B' } },
+        { value: 28, itemStyle: { color: '#F59E0B' } },
+        { value: 22, itemStyle: { color: '#F59E0B' } },
+        { value: 16, itemStyle: { color: '#FB923C' } },
+        { value: 18, itemStyle: { color: '#FB923C' } },
+        { value: 16, itemStyle: { color: '#FB923C' } },
+        { value: 5, itemStyle: { color: '#DC2626' } }
+      ],
+      barWidth: '60%',
+      label: { show: true, position: 'top', color: '#1E293B', fontSize: 11 }
+    }]
+  });
+  window.addEventListener('resize', () => ch.resize());
+}, 100);
+</script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>登录 · 企业信用状况综合评价智能体 CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="assets/js/tailwind.config.js"></script>
+<link rel="stylesheet" href="assets/css/theme.css" />
+</head>
+<body class="bg-bg">
+
+<div class="min-h-screen flex">
+
+  <!-- 左侧品牌区 -->
+  <div class="hidden md:flex md:w-1/2 grad-deep-blue text-white p-12 flex-col justify-between relative overflow-hidden">
+    <div class="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-white/5"></div>
+    <div class="absolute bottom-0 left-0 w-96 h-96 rounded-full bg-white/5"></div>
+
+    <div class="relative z-10">
+      <div class="flex items-center gap-3 mb-12">
+        <div class="w-12 h-12 rounded-lg bg-white/15 flex items-center justify-center">
+          <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/>
+          </svg>
+        </div>
+        <div>
+          <div class="text-2xl font-bold tracking-wide">CCASCEA</div>
+          <div class="text-xs text-white/70">Comprehensive Credit Assessment System</div>
+        </div>
+      </div>
+
+      <h1 class="text-4xl font-bold leading-tight">
+        企业信用状况<br/>综合评价智能体
+      </h1>
+      <p class="mt-4 text-white/80 text-base leading-relaxed">
+        面向市场化评级机构的"社会信用深度解析与<br/>跨域风险映射引擎"——评级分析师的超级智能助手
+      </p>
+
+      <div class="mt-10 space-y-4">
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0 mt-0.5">①</div>
+          <div>
+            <div class="font-semibold">机制化全域采集</div>
+            <div class="text-sm text-white/70">告别人工零散查询，秒级抓取公共信用全景</div>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0 mt-0.5">②</div>
+          <div>
+            <div class="font-semibold">白盒化逆向解构</div>
+            <div class="text-sm text-white/70">基于 GB/T 23794-2023，看清每一笔扣分</div>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0 mt-0.5">③</div>
+          <div>
+            <div class="font-semibold">跨域风险智能翻译</div>
+            <div class="text-sm text-white/70">社会合规自动翻译为偿债 PD/LGD 调整因子</div>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0 mt-0.5">④</div>
+          <div>
+            <div class="font-semibold">D级熔断 · 双轨融合报告</div>
+            <div class="text-sm text-white/70">合规防火墙 + 一键生成商业级评级报告</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="relative z-10 flex items-center gap-3 text-xs text-white/60 flex-wrap">
+      <span class="px-2 py-0.5 bg-white/10 rounded">国办发〔2026〕8号</span>
+      <span class="px-2 py-0.5 bg-white/10 rounded">GB/T 23794-2023</span>
+      <span class="px-2 py-0.5 bg-white/10 rounded">GB/T 45255-2025</span>
+      <span class="px-2 py-0.5 bg-white/10 rounded">等保2.0 三级</span>
+    </div>
+  </div>
+
+  <!-- 右侧登录表单 -->
+  <div class="flex-1 flex items-center justify-center p-8 bg-white">
+    <div class="w-full max-w-sm">
+      <div class="md:hidden text-center mb-8">
+        <div class="text-2xl font-bold text-brand-600">CCASCEA</div>
+        <div class="text-xs text-muted">企业信用状况综合评价智能体</div>
+      </div>
+
+      <h2 class="text-2xl font-bold text-ink">欢迎登录</h2>
+      <p class="text-sm text-muted mt-1">输入账号开始今天的评级工作</p>
+
+      <!-- Tab 切换 -->
+      <div class="mt-8 flex border-b border-border">
+        <button id="tab-pwd" class="flex-1 py-2.5 text-sm font-medium text-brand-600 border-b-2 border-brand-600">账号密码</button>
+        <button id="tab-sso" class="flex-1 py-2.5 text-sm font-medium text-muted border-b-2 border-transparent">企业 SSO</button>
+      </div>
+
+      <!-- 账号密码 -->
+      <form id="form-pwd" onsubmit="return doLogin(event)" class="mt-6 space-y-4">
+        <div>
+          <label class="text-xs text-muted">账号 / 工号</label>
+          <input id="account" required value="admin"
+            class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm" />
+        </div>
+        <div>
+          <label class="text-xs text-muted">密码</label>
+          <input id="password" type="password" required value="demo123"
+            class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent text-sm" />
+        </div>
+        <div class="flex items-center justify-between text-xs">
+          <label class="flex items-center gap-1.5 text-muted cursor-pointer">
+            <input type="checkbox" class="rounded border-border" checked />
+            7天免登录
+          </label>
+          <a href="#" onclick="event.preventDefault();forgotPwd()" class="text-brand-600 hover:underline">忘记密码?</a>
+        </div>
+        <button type="submit"
+          class="w-full py-2.5 bg-brand-600 text-white rounded-md font-medium hover:bg-brand-700 transition-colors text-sm">
+          登录工作台
+        </button>
+        <div class="text-xs text-center text-muted">
+          演示账号 <span class="num text-brand-700">admin</span> / 任意密码
+        </div>
+      </form>
+
+      <!-- SSO -->
+      <form id="form-sso" onsubmit="return doSSO(event)" class="mt-6 space-y-4 hidden">
+        <div class="p-4 bg-bg rounded-md text-sm text-muted">
+          <p>请通过企业内部身份认证系统登录。</p>
+          <p class="mt-1">支持：OIDC / SAML 2.0 / CAS / LDAP</p>
+        </div>
+        <button type="submit"
+          class="w-full py-2.5 bg-brand-600 text-white rounded-md font-medium hover:bg-brand-700 transition-colors text-sm">
+          通过企业 SSO 登录
+        </button>
+      </form>
+
+      <div class="mt-10 pt-6 border-t border-border text-[11px] text-muted text-center">
+        © 2026 CCASCEA · 严格遵循 国办发〔2026〕8号 与国家信用评价体系
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/js/common.js"></script>
+<script>
+  // Tab 切换
+  document.getElementById('tab-pwd').onclick = () => switchTab('pwd');
+  document.getElementById('tab-sso').onclick = () => switchTab('sso');
+  function switchTab(t) {
+    const tabs = ['pwd','sso'];
+    tabs.forEach(k => {
+      const tab = document.getElementById('tab-' + k);
+      const form = document.getElementById('form-' + k);
+      if (k === t) {
+        tab.classList.add('text-brand-600','border-brand-600');
+        tab.classList.remove('text-muted','border-transparent');
+        form.classList.remove('hidden');
+      } else {
+        tab.classList.remove('text-brand-600','border-brand-600');
+        tab.classList.add('text-muted','border-transparent');
+        form.classList.add('hidden');
+      }
+    });
+  }
+  function doLogin(e) {
+    e.preventDefault();
+    const account = document.getElementById('account').value;
+    const pwd = document.getElementById('password').value;
+    if (!account || !pwd) {
+      toast('请输入账号和密码', 'warning');
+      return false;
+    }
+    LS.set('ccascea_user', { account, loginAt: Date.now() });
+    toast('登录成功，正在进入工作台...', 'success');
+    setTimeout(() => location.href = 'pages/workbench.html', 700);
+    return false;
+  }
+  function doSSO(e) {
+    e.preventDefault();
+    LS.set('ccascea_user', { account: 'sso_user', loginAt: Date.now() });
+    toast('SSO 验证通过，进入工作台', 'success');
+    setTimeout(() => location.href = 'pages/workbench.html', 700);
+    return false;
+  }
+  function forgotPwd() {
+    openModal({
+      title: '找回密码',
+      width: 'max-w-md',
+      content: `
+        <div class="space-y-4">
+          <p class="text-sm text-muted">通过企业邮箱接收密码重置链接，或联系系统管理员。</p>
+          <div>
+            <label class="text-xs text-muted">企业邮箱</label>
+            <input type="email" placeholder="your-name@company.com"
+              class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" />
+          </div>
+          <div>
+            <label class="text-xs text-muted">工号 / 账号</label>
+            <input type="text" placeholder="例如 admin"
+              class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" />
+          </div>
+          <div class="text-xs text-muted bg-bg p-3 rounded">联系方式：IT 管理员邮箱 <span class="text-brand-700">it-support@example.com</span>，工作日 9:00-18:00</div>
+        </div>
+      `,
+      footer: `
+        <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded hover:bg-bg">取消</button>
+        <button onclick="closeModal();toast('重置链接已发送至企业邮箱','success')" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded hover:bg-brand-700">发送重置链接</button>
+      `
+    });
+  }
+</script>
+</body>
+</html>

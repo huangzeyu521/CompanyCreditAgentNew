@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>工作台首页 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+
+<div id="app"></div>
+
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* 报告类型筛选状态 */
+let _reportFilter = 'all';
+function filterReports(type) {
+  _reportFilter = type;
+  document.getElementById('app').innerHTML = '';
+  mountLayout('workbench', renderMain);
+}
+
+function renderMain() {
+  const k = MockData.kpis;
+  const todos = MockData.todos;
+  const alerts = MockData.alerts;
+  // 按筛选类型过滤报告
+  const _all = MockData.reports;
+  const filterMap = { all: _all,
+                      '主体': _all.filter(r => r.type.includes('主体')),
+                      '债项': _all.filter(r => r.type.includes('债项')),
+                      '跟踪': _all.filter(r => r.type.includes('跟踪')) };
+  const reports = (filterMap[_reportFilter] || _all).slice(0, 5);
+  const inds = MockData.industries.slice(0, 4);
+  const u = MockData.currentUser;
+
+  // 五步闭环数据 —— 严格对齐《产品设计文档 V1.0》5.5 节定义
+  // 第一步：目标录入与机制化全域抓取（无感启动）—— 录入即触发隐私计算+合规API自动抓取全量公共信用数据
+  // 第二步：白盒化社会信用逆向解构（原因剖析）
+  // 第三步：跨域语系智能翻译与风险映射（核心决策辅助）—— 含知识图谱穿透实控人/子公司
+  // 第四步：刚性底线核查与自动熔断拦截（合规防线）
+  // 第五步：人工复判与"双轨融合"报告一键生成（商业交付）
+  const steps = [
+    { n:'①', title:'目标录入与全域抓取',  desc:'输入主体即触发隐私计算+合规API · 全域公共信用数据秒级机制化采集', href:'subject-rating.html?step=1' },
+    { n:'②', title:'白盒化解构',          desc:'基于 GB/T 23794-2023 国标逆向归因 · 看清每一笔扣分依据', href:'subject-rating.html?step=2' },
+    { n:'③', title:'跨域翻译 + 图谱穿透', desc:'社会合规 → 偿债 PD/LGD 自动映射；含实控人/担保/中介穿透',href:'subject-rating.html?step=3' },
+    { n:'④', title:'熔断校验',            desc:'刚性底线核查：D级一票否决严禁评为A级以上',                href:'subject-rating.html?step=4' },
+    { n:'⑤', title:'双轨融合报告',        desc:'人工复判 + 双轨融合声明 + 一键生成 + 审计归档',           href:'subject-rating.html?step=5' }
+  ];
+
+  // KPI 卡
+  const kpiHtml = `
+    <div class="border border-border rounded-md p-4 lift">
+      <div class="text-xs text-muted">本月已完成评级</div>
+      <div class="flex items-baseline gap-2 mt-1">
+        <span class="num text-2xl font-semibold text-brand-600">${k.completedThisMonth}</span>
+        <span class="text-xs text-muted">单</span>
+        <span class="ml-auto text-xs text-success flex items-center gap-0.5">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M5 15l7-7 7 7"/></svg>
+          ${k.completedDelta}%
+        </span>
+      </div>
+      <div class="h-1 mt-3 rounded bg-bg overflow-hidden"><div class="h-full bg-brand-500" style="width:72%"></div></div>
+    </div>
+    <div class="border border-border rounded-md p-4 lift">
+      <div class="text-xs text-muted">待处理任务</div>
+      <div class="flex items-baseline gap-2 mt-1">
+        <span class="num text-2xl font-semibold text-warning">${k.pending}</span>
+        <span class="text-xs text-muted">单 · 含${k.pendingUrgent}紧急</span>
+      </div>
+      <div class="h-1 mt-3 rounded bg-bg overflow-hidden"><div class="h-full bg-warning" style="width:30%"></div></div>
+    </div>
+    <div class="border border-danger/30 rounded-md p-4 bg-danger/5 lift">
+      <div class="text-xs text-danger flex items-center gap-1">
+        <span class="w-1.5 h-1.5 bg-danger rounded-full pulse-dot"></span>触发熔断主体
+      </div>
+      <div class="flex items-baseline gap-2 mt-1">
+        <span class="num text-2xl font-semibold text-danger">${k.fusedSubjects}</span>
+        <span class="text-xs text-muted">家</span>
+        <span class="ml-auto text-xs text-danger">D级</span>
+      </div>
+      <div class="h-1 mt-3 rounded bg-danger/15 overflow-hidden"><div class="h-full bg-danger" style="width:50%"></div></div>
+    </div>
+    <div class="border border-border rounded-md p-4 lift">
+      <div class="text-xs text-muted">平均交付周期</div>
+      <div class="flex items-baseline gap-2 mt-1">
+        <span class="num text-2xl font-semibold text-brand-600">${k.avgCycleDays}</span>
+        <span class="text-xs text-muted">天</span>
+        <span class="ml-auto text-xs text-success flex items-center gap-0.5">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M19 9l-7 7-7-7"/></svg>
+          ${Math.abs(k.avgCycleDelta)}d
+        </span>
+      </div>
+      <div class="h-1 mt-3 rounded bg-bg overflow-hidden"><div class="h-full bg-success" style="width:60%"></div></div>
+    </div>
+  `;
+
+  // 五步卡
+  const stepsHtml = steps.map(s => `
+    <a href="${s.href}" class="step-card bg-white rounded-lg shadow-card overflow-hidden cursor-pointer block">
+      <div class="h-1.5 step-bar"></div>
+      <div class="p-4">
+        <div class="flex items-center justify-between">
+          <span class="num text-2xl font-bold text-brand-600">${s.n}</span>
+          <svg class="w-5 h-5 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M19 12H5M19 12l-7-7M19 12l-7 7"/></svg>
+        </div>
+        <div class="mt-2 font-semibold text-sm">${s.title}</div>
+        <p class="text-xs text-muted mt-1 leading-snug">${s.desc}</p>
+        <button class="mt-3 w-full text-xs py-1.5 bg-brand-50 text-brand-700 rounded hover:bg-brand-100">立即开始</button>
+      </div>
+    </a>
+  `).join('');
+
+  // 待办
+  const priorityMap = {
+    urgent: { label:'紧急', cls:'text-danger border-danger/30 bg-danger/5', dot:'bg-danger pulse-dot' },
+    high:   { label:'高',   cls:'text-warning border-warning/30 bg-warning/5', dot:'bg-warning' },
+    medium: { label:'中',   cls:'text-brand-600 border-brand-200 bg-brand-50',  dot:'bg-accent' },
+    low:    { label:'低',   cls:'text-muted border-border bg-bg',              dot:'bg-muted' }
+  };
+  const statusMap = {
+    pending:     { label:'待评级', cls:'bg-warning/10 text-warning border-warning/30' },
+    in_progress: { label:'评级中', cls:'bg-brand-100 text-brand-700 border-brand-200' },
+    review:      { label:'待复核', cls:'bg-success/10 text-success border-success/30' }
+  };
+  const todosHtml = todos.map(t => {
+    const p = priorityMap[t.priority];
+    const s = statusMap[t.status];
+    return `
+      <li class="px-5 py-3 hover:bg-bg flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full ${p.dot}"></span>
+        <span class="text-xs font-medium border rounded px-1.5 py-0.5 ${p.cls}">${p.label}</span>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium truncate">${t.subject} · ${t.type}</div>
+          <div class="text-xs text-muted">${t.desc}</div>
+        </div>
+        <div class="text-xs text-muted whitespace-nowrap">${t.deadline}</div>
+        <span class="text-xs px-2 py-0.5 rounded-full border ${s.cls}">${s.label}</span>
+        <a href="subject-rating.html?subject=${encodeURIComponent(t.subject)}" class="text-xs text-brand-600 hover:underline">进入 →</a>
+      </li>
+    `;
+  }).join('');
+
+  // 报告表格
+  const reportsHtml = reports.map(r => {
+    const isFused = r.status === 'fused';
+    return `
+      <tr class="hover:bg-bg ${isFused ? 'bg-danger/5' : ''}">
+        <td class="px-5 py-3 ${isFused ? 'flex items-center gap-2' : ''}">
+          ${isFused ? '<span class="w-1.5 h-1.5 rounded-full bg-danger pulse-dot"></span>' : ''}
+          ${r.subject}
+          ${isFused ? '<span class="text-[10px] text-danger border border-danger/40 rounded px-1 bg-white">熔断</span>' : ''}
+        </td>
+        <td class="text-muted text-xs">${r.type}</td>
+        <td class="text-center">${gradeBadge(r.public)}</td>
+        <td class="text-center">${gradeBadge(r.market)}</td>
+        <td class="text-center">${gradeBadge(r.fusion, { withFuse: isFused })}</td>
+        <td class="text-muted text-xs">${r.updatedAt}</td>
+        <td class="text-right pr-5">
+          <a href="report-detail.html?id=${r.id}" class="text-xs ${isFused ? 'text-danger' : 'text-brand-600'} hover:underline">${isFused ? '复核' : '查看'}</a>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // 预警
+  const alertColorMap = {
+    red:    { border:'border-danger',  bg:'bg-danger/5',   title:'text-danger',  btn:'text-danger',  breathe:true },
+    yellow: { border:'border-warning', bg:'bg-warning/5',  title:'text-warning', btn:'text-warning' },
+    blue:   { border:'border-accent',  bg:'bg-brand-50',   title:'text-brand-600',btn:'text-brand-600' }
+  };
+  const alertsHtml = alerts.map(a => {
+    const c = alertColorMap[a.level];
+    return `
+      <div class="border-l-4 ${c.border} ${c.bg} rounded p-3 ${c.breathe ? 'breathe' : ''}">
+        <div class="flex items-start gap-2">
+          <span class="text-base">${a.icon}</span>
+          <div class="flex-1">
+            <div class="text-xs ${c.title} font-semibold">${a.title}</div>
+            <div class="text-sm font-medium mt-0.5">${a.subject}</div>
+            <div class="text-xs text-muted mt-1">${a.desc}</div>
+            <button onclick="toast('已打开预警详情：${a.subject}','info')" class="text-xs ${c.btn} underline mt-2">立即查看 →</button>
+          </div>
+          <div class="text-[10px] text-muted whitespace-nowrap">${a.ago}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 行业洞察
+  const indHtml = inds.map(i => {
+    const trendIcon = i.trend === 'up'   ? '↑' : i.trend === 'down' ? '↓' : '→';
+    const trendColor= i.trend === 'up'   ? 'text-danger' : i.trend === 'down' ? 'text-success' : 'text-muted';
+    return `
+      <div class="border border-border rounded p-3 hover:border-brand-300 cursor-pointer lift">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium">${i.name}</span>
+          <span class="text-[10px] ${trendColor}">${trendIcon} D${i.newD >= 0 ? '+' : ''}${i.newD}</span>
+        </div>
+        <div class="num text-base font-semibold ${i.avgGrade.startsWith('A') ? 'text-brand-600' : (i.avgGrade.startsWith('B') ? 'text-warning' : 'text-danger')} mt-1">${i.avgGrade}</div>
+        <div class="text-[10px] text-muted">行业平均</div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <!-- 欢迎 + KPI -->
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5 fade-in-up">
+      <div class="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-semibold">早上好，<span class="grad-text">${u.name}</span></h1>
+            <span class="text-xs bg-brand-50 text-brand-700 rounded-full px-2 py-0.5">2026年4月28日 · 周二</span>
+          </div>
+          <p class="text-sm text-muted mt-1">您今天有 <span class="text-danger font-semibold">${k.pending} 条</span> 评级任务待处理，其中 <span class="text-warning font-semibold">${k.pendingUrgent} 条</span> 紧急。</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="location.reload()" class="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-bg flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 4v6h6M20 20v-6h-6M4 4l16 16"/></svg>
+            刷新
+          </button>
+          <a href="subject-rating.html" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 4v16m8-8H4"/></svg>
+            新建评级
+          </a>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">${kpiHtml}</div>
+    </section>
+
+    <!-- 五步闭环 -->
+    <section class="mb-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-base font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          五步闭环工作流
+          <span class="text-xs text-muted font-normal">· 把"双轨融合"国家战略嵌入每日动线</span>
+        </h2>
+        <a href="#" onclick="openHelpModal();return false;" class="text-xs text-brand-600 hover:underline">查看完整工作流说明 →</a>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">${stepsHtml}</div>
+    </section>
+
+    <!-- 双栏：左 待办+报告 / 右 预警+行业 -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div class="lg:col-span-2 space-y-5">
+
+        <!-- 今日待办 -->
+        <div class="bg-white rounded-lg shadow-card">
+          <div class="px-5 py-3.5 border-b border-border flex items-center justify-between">
+            <h3 class="text-sm font-semibold flex items-center gap-2">
+              <svg class="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+              今日待办
+              <span class="text-xs bg-bg text-muted px-1.5 py-0.5 rounded">${todos.length}</span>
+            </h3>
+            <a href="tracking.html" class="text-xs text-brand-600 hover:underline">查看全部 →</a>
+          </div>
+          <ul class="divide-y divide-border">${todosHtml}</ul>
+        </div>
+
+        <!-- 近期评级 -->
+        <div class="bg-white rounded-lg shadow-card">
+          <div class="px-5 py-3.5 border-b border-border flex items-center justify-between">
+            <h3 class="text-sm font-semibold flex items-center gap-2">
+              <svg class="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9 17v-6h4l-2-2-2 2m4 6V11h4l-2-2-2 2"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+              近期评级
+            </h3>
+            <div class="flex gap-1">
+              <button onclick="filterReports('all')"  class="text-xs px-2 py-1 rounded ${_reportFilter==='all'?'text-brand-700 bg-brand-50':'text-muted hover:bg-bg'}">全部</button>
+              <button onclick="filterReports('主体')" class="text-xs px-2 py-1 rounded ${_reportFilter==='主体'?'text-brand-700 bg-brand-50':'text-muted hover:bg-bg'}">主体</button>
+              <button onclick="filterReports('债项')" class="text-xs px-2 py-1 rounded ${_reportFilter==='债项'?'text-brand-700 bg-brand-50':'text-muted hover:bg-bg'}">债项</button>
+              <button onclick="filterReports('跟踪')" class="text-xs px-2 py-1 rounded ${_reportFilter==='跟踪'?'text-brand-700 bg-brand-50':'text-muted hover:bg-bg'}">跟踪</button>
+            </div>
+          </div>
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="th">
+                <th class="text-left px-5 py-2.5">主体名称</th>
+                <th class="text-left py-2.5">类型</th>
+                <th class="text-center py-2.5">公共</th>
+                <th class="text-center py-2.5">市场化</th>
+                <th class="text-center py-2.5">融合</th>
+                <th class="text-left py-2.5">更新时间</th>
+                <th class="text-right pr-5 py-2.5">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border">${reportsHtml}</tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <div class="space-y-5">
+
+        <!-- 重要预警 -->
+        <div class="bg-white rounded-lg shadow-card">
+          <div class="px-5 py-3.5 border-b border-border flex items-center justify-between">
+            <h3 class="text-sm font-semibold flex items-center gap-2">
+              <svg class="w-4 h-4 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 9v4m0 4h.01M10.3 3.86l-8.5 14.7a2 2 0 001.71 3h17a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              重要预警 <span class="text-xs bg-danger/10 text-danger px-1.5 py-0.5 rounded">${alerts.length}</span>
+            </h3>
+            <a href="tracking.html" class="text-xs text-brand-600 hover:underline">订阅设置</a>
+          </div>
+          <div class="p-3 space-y-3">${alertsHtml}</div>
+        </div>
+
+        <!-- 行业洞察 -->
+        <div class="bg-white rounded-lg shadow-card">
+          <div class="px-5 py-3.5 border-b border-border flex items-center justify-between">
+            <h3 class="text-sm font-semibold flex items-center gap-2">
+              <svg class="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M3 17l6-6 4 4 8-8M14 7h7v7"/></svg>
+              行业信用洞察
+            </h3>
+            <span class="text-xs text-muted">近30天</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3 p-3">${indHtml}</div>
+          <div class="px-3 pb-3">
+            <a href="industry-scan.html" class="text-xs text-brand-600 hover:underline">查看完整行业扫描 →</a>
+          </div>
+        </div>
+
+        <!-- 隐私计算盒 -->
+        <div class="rounded-lg p-4 text-white grad-deep-blue">
+          <div class="text-xs opacity-80">隐私计算"安全融合舱"</div>
+          <div class="font-semibold mt-1">FL · MPC · TEE · DP</div>
+          <div class="text-xs opacity-80 mt-2 leading-snug">本周已完成跨域联合计算 <span class="font-medium num">1,248</span> 次<br/>原始政务数据 0 次出域</div>
+          <div class="mt-3 flex items-center gap-2 flex-wrap">
+            <span class="px-1.5 py-0.5 bg-white/15 rounded text-[10px]">FL ✓</span>
+            <span class="px-1.5 py-0.5 bg-white/15 rounded text-[10px]">MPC ✓</span>
+            <span class="px-1.5 py-0.5 bg-white/15 rounded text-[10px]">TEE ✓</span>
+            <span class="px-1.5 py-0.5 bg-white/15 rounded text-[10px]">DP ✓</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  `;
+}
+
+// 启动
+mountLayout('workbench', renderMain);
+</script>
+</body>
+</html>

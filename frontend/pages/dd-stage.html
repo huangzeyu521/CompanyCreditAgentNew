@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>② 尽职调查（聚合工作台）· CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== ② 尽职调查 阶段聚合工作台
+ * 对齐《信用评级业务程序指引》第十六、十七条 实地调研 / 工作底稿
+ * 包含：资料清单 / 一键采集 / 财报 OCR / 三表勾稽 / 招股书结构化 / 访谈管理 / 录音转写 / 工作底稿
+ * 触发条件：首次评级 / 连续 1 年 / 跟踪 2 年 / 项目组全部更换 → 强制实地 ≥ 2 工作日
+ * ==================================================================== */
+function renderMain() {
+  const checklist = MockData.ddChecklist;
+  const sources = MockData.ddSources;
+  const interviews = MockData.ddInterviews;
+  const wp = MockData.ddWorkpapers;
+  const received = checklist.filter(x => x.received).length;
+  const ratio = ((received / checklist.length) * 100).toFixed(0);
+  return `
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="num text-2xl text-brand-600 font-bold">②</span>
+            尽职调查 · 阶段工作台
+            <span class="text-xs text-muted font-normal ml-2">《信用评级业务程序指引》第十六、十七条</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            评级业务核心阶段。完成<strong>资料清单生成 → 多源采集 → 财报 OCR / 三表勾稽 → 实地访谈（≥ 2 工作日）→ 录音转写 → 工作底稿留存</strong>等动作。
+            底稿保留期 ≥ 15 年（《档案管理制度》）。
+          </p>
+        </div>
+        <button onclick="askAIDD()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手解读流程</button>
+      </div>
+
+      <!-- 阶段进度条 -->
+      <div class="mt-5">
+        <div class="flex items-center gap-2 text-xs flex-wrap">
+          <span class="text-muted">本阶段流程：</span>
+          ${[
+            ['资料清单','✓'], ['多源采集','✓'], ['财报OCR','✓'], ['三表勾稽','✓'], ['访谈','✓'], ['录音转写','✓'], ['底稿留存','✓']
+          ].map(([t,s], i, arr) => `
+            <span class="flex items-center gap-1">
+              <span class="w-5 h-5 rounded-full bg-success/20 text-success text-[10px] flex items-center justify-center font-semibold">${s}</span>
+              <span class="text-ink">${t}</span>
+            </span>
+            ${i < arr.length - 1 ? '<span class="text-muted">→</span>' : ''}
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- KPI -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">资料完成度</div><div class="num text-2xl font-bold text-brand-600 mt-1">${ratio}%</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">已收 / 必交</div><div class="num text-2xl font-bold text-success mt-1">${received}/${checklist.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">数据源</div><div class="num text-2xl font-bold text-brand-700 mt-1">${sources.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">访谈完成</div><div class="num text-2xl font-bold text-success mt-1">${interviews.filter(i=>i.transcribed).length}/${interviews.length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">底稿目录</div><div class="num text-2xl font-bold text-brand-600 mt-1">${wp.length}</div></div>
+      </div>
+    </section>
+
+    <!-- 4 个子工作台 -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+      ${[
+        { href:'dd-collection.html',     title:'资料采集与核验', desc:'B1 资料清单 · B2 多源采集（10 数据源）· B9 外部交叉核验 · B10 实地调研合规校验', icon:'📦', kpi:`已收 ${received}/${checklist.length} · ${sources.length} 数据源` },
+        { href:'dd-financial-ocr.html',  title:'财报 OCR 与三表勾稽', desc:'B3 PDF/扫描件 OCR · B4 三表勾稽校验 · B5 招股书 / 募集 / 年报结构化', icon:'📄', kpi:'OCR 准确率 99.4%' },
+        { href:'dd-interview.html',      title:'访谈管理与录音转写', desc:'B6 访谈计划与执行 · B7 ASR 转写 · 发言人区分 · 关键风险点自动标注', icon:'🎙️', kpi:`${interviews.length} 场访谈` },
+        { href:'dd-workpaper.html',      title:'工作底稿管理',       desc:'B8 底稿目录树 · 版本控制 · 分级归档（机密 / 内部）· 保留 ≥ 15 年', icon:'📂', kpi:`${wp.length} 类目录 · ${wp.reduce((s,w)=>s+w.items,0)} 条目` }
+      ].map(c => `
+        <a href="${c.href}" class="block border border-border rounded-lg p-5 hover:border-brand-300 hover:bg-brand-50/30 hover:shadow-card transition-all">
+          <div class="text-3xl mb-2">${c.icon}</div>
+          <div class="text-base font-semibold text-brand-700">${c.title}</div>
+          <div class="text-xs text-muted leading-snug mt-2">${c.desc}</div>
+          <div class="flex items-center justify-between mt-3 pt-3 border-t border-border">
+            <span class="text-xs text-muted">${c.kpi}</span>
+            <span class="text-xs text-brand-600 hover:underline">进入工作台 →</span>
+          </div>
+        </a>
+      `).join('')}
+    </section>
+
+    <!-- 实地调研合规校验提示 -->
+    <section class="bg-warning/5 border border-warning/30 rounded-lg p-4 mb-5">
+      <div class="flex items-start gap-3">
+        <span class="text-xl">⚠</span>
+        <div class="flex-1 text-xs leading-relaxed">
+          <strong class="text-warning">实地调研合规触发提醒（B10）：</strong>
+          依据《信用评级业务尽职调查制度》第十一条，下列情况须强制实地调研：
+          <span class="font-medium">① 首次评级 ② 连续评级 ≥ 1 年 ③ 跟踪 ≥ 2 年 ④ 项目组全部更换 ⑤ 重大事项</span>。
+          调研时间 ≥ 2 个工作日，且必须留痕评估意见。
+        </div>
+      </div>
+    </section>
+
+    <!-- 阶段流转 -->
+    <section class="flex items-center justify-between bg-bg/40 border border-border rounded-lg p-4">
+      <a href="intake-stage.html" class="text-xs text-brand-600 hover:underline">← 上一阶段：① 立项与准入</a>
+      <a href="modeling-stage.html" class="text-xs px-4 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700 flex items-center gap-1">
+        下一阶段：③ 评级建模
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+      </a>
+    </section>
+  `;
+}
+
+function askAIDD() {
+  AIAgent.setScene('dd-checklist-gen');
+  const projs = (window.MockData && MockData.projects) || [];
+  const ddTasks = projs.filter(p => /尽调/.test(p.stage || '')).slice(0, 6);
+  const checklist = (window.MockData && MockData.ddChecklist) || [];
+  const sources = (window.MockData && MockData.ddSources) || [];
+  const ctx = '尽调中项目 ' + ddTasks.length + ' 单\n' +
+    ddTasks.map(p => '· ' + p.id + ' · ' + p.subject + ' · 评级师=' + (p.analyst || '未分派') + ' · 完成度=' + (p.ddProgress || '—')).join('\n') +
+    '\n标准尽调清单 ' + checklist.length + ' 项 / 数据源 ' + sources.length + ' 个';
+  AIAgent.send(
+    '请基于当前尽调阶段在办项目，给出"尽调资料清单生成 + 实地调研触发判断 + 数据源采集建议"三段式专业建议。\n' +
+    '当前态势：\n' + ctx + '\n\n' +
+    '要求：\n' +
+    '1. 针对每个在办项目，输出个性化尽调资料清单（行业相关 + 主体定制 8-12 项）；\n' +
+    '2. 实地调研触发判断：是否存在 5 类强制触发（首次评级 / 等级跨级变动 / D 级熔断主体 / 异议复评 / 监管要求）；\n' +
+    '3. 数据源采集策略：5 大公开源（信用中国 / 国家企业信用信息公示系统 / 上市公司公告 / 央行征信报告 / 行业协会）的差异化采集顺序；\n' +
+    '4. 异常数据源的备选方案（生态环境部 / ESG 平台 / 司法大数据）；\n' +
+    '5. 给评级师的"尽调质量自检"5 步清单；\n' +
+    '6. 引用《信用评级业务尽职调查制度》第七至十三条。',
+    ctx
+  );
+}
+
+mountLayout('dd-stage', renderMain);
+</script>
+</body>
+</html>

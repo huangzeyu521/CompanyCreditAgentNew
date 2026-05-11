@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>债项评级 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+function renderMain() {
+  return `
+    <section class="bg-white rounded-lg shadow-card p-6 mb-5">
+      <h1 class="text-lg font-semibold flex items-center gap-2 mb-4">
+        <span class="w-1 h-5 bg-brand-600 rounded"></span>
+        债项评级 · 在主体评级基础上叠加债项要素
+      </h1>
+      <p class="text-sm text-muted mb-5">
+        依据《信用评级业务程序指引》第十九条对债券评级要素的要求：
+        包含<strong>受评债券名称、发行规模、债券期限、利率、债券偿还方式、债券发行目的、债券担保方式以及发债主体主要财务数据</strong>等内容。
+        本智能体同时将发行人公共信用扣分项映射为债项 PD / LGD 调整因子。
+      </p>
+      <div class="bg-bg/60 border border-border rounded-md p-3 mb-5 text-[11px] text-muted leading-relaxed">
+        <strong class="text-ink">演示场景声明：</strong>本页所示债券要素（票面利率、期限、规模、担保方等）为 CCASCEA 智能体演示样例，
+        不代表受评对象当前真实在发或拟发债券；发行人主体名称（上海柴油机股份有限公司）来自远东资信公开评级报告，
+        发行人主要财务数据为 CCASCEA 演示数据。
+      </div>
+
+      <!-- 主体快照 -->
+      <div class="border border-brand-100 bg-brand-50 rounded-md p-4 mb-5">
+        <div class="text-xs text-brand-700 font-semibold mb-2">发行主体快照</div>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+          <div><div class="text-muted">主体名称</div><div class="font-medium mt-1">上海柴油机股份有限公司</div></div>
+          <div><div class="text-muted">主体评级（远东）</div><div class="font-medium mt-1 num">AA-</div></div>
+          <div><div class="text-muted">公共信用</div><div class="mt-1">${gradeBadge('B')}</div></div>
+          <div><div class="text-muted">融合等级</div><div class="mt-1">${gradeBadge('A')}</div></div>
+          <div><div class="text-muted">熔断状态</div><div class="font-medium mt-1 text-success">未触发</div></div>
+        </div>
+      </div>
+
+      <!-- 债项要素录入 -->
+      <h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        债项要素录入
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div>
+          <label class="text-xs text-muted">受评债券名称 <span class="text-danger">*</span></label>
+          <input value="上海柴油机股份有限公司 2026 年第一期公司债" class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" />
+        </div>
+        <div>
+          <label class="text-xs text-muted">债项编号 <span class="text-danger">*</span></label>
+          <input value="22 上柴 01 / R-BD-2026-001" class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" />
+        </div>
+        <div>
+          <label class="text-xs text-muted">债项类型</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">
+            <option selected>公司债</option>
+            <option>中期票据</option>
+            <option>短期融资券</option>
+            <option>超短期融资券</option>
+            <option>可转换债券</option>
+            <option>金融债</option>
+            <option>地方政府债</option>
+            <option>资产支持证券（ABS）</option>
+            <option>定向工具 PPN</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-muted">发行规模（亿元）</label>
+          <input value="5.00" class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" />
+        </div>
+        <div>
+          <label class="text-xs text-muted">债券期限</label>
+          <input value="3 年（不含回售选择权）" class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" />
+        </div>
+        <div>
+          <label class="text-xs text-muted">票面利率</label>
+          <input value="3.85% 固定利率" class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" />
+        </div>
+        <div>
+          <label class="text-xs text-muted">偿还方式</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">
+            <option selected>每年付息一次，到期一次还本</option>
+            <option>等额本息</option>
+            <option>等额本金</option>
+            <option>到期一次还本付息</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-muted">发行目的（募集资金投向）</label>
+          <input value="补充流动资金 + 偿还有息债务" class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" />
+        </div>
+        <div>
+          <label class="text-xs text-muted">担保方式</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">
+            <option>无担保</option>
+            <option selected>第三方全额无条件不可撤销连带责任担保</option>
+            <option>抵押担保</option>
+            <option>质押担保</option>
+            <option>差额补足</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-muted">担保方（演示样例）</label>
+          <input value="上海汽车集团股份有限公司（控股股东）" class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm" />
+        </div>
+        <div>
+          <label class="text-xs text-muted">契约条款</label>
+          <select class="mt-1 block w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:border-accent text-sm">
+            <option>无特殊条款</option>
+            <option selected>含交叉违约条款</option>
+            <option>含财务承诺条款</option>
+            <option>含交叉违约 + 财务承诺</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 发债主体主要财务数据（程序指引第十九条要求）-->
+      <h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        发债主体主要财务数据（依据《程序指引》第十九条）
+      </h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div class="border border-border rounded p-3">
+          <div class="text-xs text-muted">营业总收入 2025</div>
+          <div class="num text-base font-semibold mt-1">¥368.4 亿</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="text-xs text-muted">净利润 2025</div>
+          <div class="num text-base font-semibold mt-1">¥18.4 亿</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="text-xs text-muted">资产总计</div>
+          <div class="num text-base font-semibold mt-1">¥298.4 亿</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="text-xs text-muted">所有者权益</div>
+          <div class="num text-base font-semibold mt-1">¥125.6 亿</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="text-xs text-muted">资产负债率</div>
+          <div class="num text-base font-semibold mt-1">57.9%</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="text-xs text-muted">EBITDA / 全部债务</div>
+          <div class="num text-base font-semibold text-success mt-1">31.4%</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="text-xs text-muted">利息保障倍数</div>
+          <div class="num text-base font-semibold mt-1">3.4x</div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="text-xs text-muted">经营现金流净额</div>
+          <div class="num text-base font-semibold mt-1">¥24.8 亿</div>
+        </div>
+      </div>
+
+      <!-- 增信效果分析 -->
+      <h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        增信效果分析（智能体辅助）
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs text-muted">担保方信用</div>
+          <div class="mt-1">${gradeBadge('AA')}</div>
+          <div class="text-xs text-muted mt-2">担保方公共信用：A 级（920分）</div>
+        </div>
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs text-muted">担保覆盖率</div>
+          <div class="num text-2xl font-bold text-brand-600 mt-1">120%</div>
+          <div class="text-xs text-success mt-2">充分覆盖</div>
+        </div>
+        <div class="border border-border rounded-md p-4">
+          <div class="text-xs text-muted">建议债项调整</div>
+          <div class="text-base font-bold text-success mt-1">上调 1 个子级</div>
+          <div class="text-xs text-muted mt-2">从 A 上调至 A+</div>
+        </div>
+      </div>
+
+      <!-- 主体 vs 债项最终结论 -->
+      <h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
+        <span class="w-1 h-4 bg-gold rounded"></span>
+        最终结论
+      </h2>
+      <div class="grid grid-cols-3 gap-4 mb-5">
+        <div class="border border-border rounded-lg p-4 text-center">
+          <div class="text-xs text-muted mb-1">主体融合等级</div>
+          <div class="text-2xl font-bold text-brand-700 num">A</div>
+        </div>
+        <div class="border border-border rounded-lg p-4 text-center">
+          <div class="text-xs text-muted mb-1">担保增信</div>
+          <div class="text-2xl font-bold text-success num">+1</div>
+          <div class="text-xs text-muted">子级</div>
+        </div>
+        <div class="border-2 border-gold rounded-lg p-4 text-center bg-gradient-to-br from-yellow-50 to-amber-100 glow-gold">
+          <div class="text-xs text-gold font-semibold mb-1">★ 债项最终等级 ★</div>
+          <div class="text-3xl font-bold text-gold num">A+</div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <button onclick="toast('草稿已保存','success')" class="text-xs px-4 py-1.5 border border-border rounded-md hover:bg-bg">保存草稿</button>
+        <button onclick="finishBond()" class="text-xs px-4 py-1.5 bg-success text-white rounded-md hover:bg-green-700">✓ 生成债项评级报告</button>
+      </div>
+    </section>
+  `;
+}
+
+function finishBond() {
+  toast('正在生成债项评级报告...','success');
+  setTimeout(() => location.href = 'report-detail.html?id=R-20260426-003', 1200);
+}
+
+mountLayout('bond-rating', renderMain);
+</script>
+</body>
+</html>

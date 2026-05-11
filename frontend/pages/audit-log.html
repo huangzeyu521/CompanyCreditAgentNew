@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>审计日志 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* 全局筛选状态 */
+let _auditFilter = { search: '', type: 'all', date: '2026-04-28' };
+
+function applyAuditFilter() {
+  return MockData.auditLogs.filter(l => {
+    if (_auditFilter.type !== 'all' && !l.action.includes(_auditFilter.type)) return false;
+    if (_auditFilter.search) {
+      const s = _auditFilter.search.toLowerCase();
+      if (!(l.operator.toLowerCase().includes(s) || l.action.toLowerCase().includes(s) || l.subject.toLowerCase().includes(s) || l.id.toLowerCase().includes(s))) return false;
+    }
+    return true;
+  });
+}
+
+function updateAuditFilter(k, v) {
+  _auditFilter[k] = v;
+  document.getElementById('app').innerHTML = '';
+  mountLayout('audit-log', renderMain);
+}
+
+function renderMain() {
+  const logs = applyAuditFilter();
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between mb-4 flex-wrap gap-3">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            审计日志 · 全量操作追溯
+          </h1>
+          <p class="text-sm text-muted mt-1">所有操作记录 append-only 写入 + 区块链 hash 上链 + 异地多备份，保留 10 年。</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="toast('已导出审计日志','success')" class="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-bg">导出 CSV</button>
+          <button onclick="verifyBlockchain()" class="text-xs px-3 py-1.5 bg-brand-600 text-white rounded-md hover:bg-brand-700">区块链验证</button>
+          <button onclick="askAIAudit()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">🤖 AI 审计追溯</button>
+        </div>
+      </div>
+
+      <!-- 概览 KPI -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+        <div class="border border-border rounded p-3"><div class="text-xs text-muted">今日操作</div><div class="num text-xl font-semibold text-brand-600 mt-1">${logs.length}</div></div>
+        <div class="border border-border rounded p-3"><div class="text-xs text-muted">活跃用户</div><div class="num text-xl font-semibold text-brand-600 mt-1">5</div></div>
+        <div class="border border-success/30 rounded p-3 bg-success/5"><div class="text-xs text-success">通过审计</div><div class="num text-xl font-semibold text-success mt-1">${logs.length}</div></div>
+        <div class="border border-warning/30 rounded p-3 bg-warning/5"><div class="text-xs text-warning">异常事件</div><div class="num text-xl font-semibold text-warning mt-1">0</div></div>
+        <div class="border border-border rounded p-3"><div class="text-xs text-muted">区块链上链</div><div class="num text-xl font-semibold text-brand-600 mt-1">100%</div></div>
+      </div>
+
+      <!-- 操作时段分布 + 操作类型分布 双图 -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+        <div class="lg:col-span-2 border border-border rounded p-3">
+          <div class="text-sm font-semibold mb-2 flex items-center justify-between">
+            <span>今日操作时段分布（24 小时）</span>
+            <span class="text-[10px] text-muted">业务时段：09:00-18:00</span>
+          </div>
+          <div id="hourlyChart" class="h-48"></div>
+        </div>
+        <div class="border border-border rounded p-3">
+          <div class="text-sm font-semibold mb-2">操作类型 TOP 5</div>
+          <div id="actionTypeChart" class="h-48"></div>
+        </div>
+      </div>
+
+      <!-- 筛选 -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+        <div class="md:col-span-2">
+          <input type="text" placeholder="搜索操作人 / 操作类型 / 主体..." value="${_auditFilter.search}"
+            oninput="updateAuditFilter('search', this.value)"
+            class="w-full px-3 py-2 text-sm border border-border rounded-md focus:outline-none focus:border-accent" />
+        </div>
+        <select onchange="updateAuditFilter('type', this.value)"
+          class="w-full px-3 py-2 text-sm border border-border rounded-md focus:outline-none focus:border-accent">
+          <option value="all">全部操作类型</option>
+          <option value="查看">查看</option>
+          <option value="编辑">编辑</option>
+          <option value="发布">发布</option>
+          <option value="熔断">熔断</option>
+          <option value="登录">登录</option>
+          <option value="导出">导出</option>
+          <option value="复核">复核</option>
+        </select>
+        <input type="date" value="${_auditFilter.date}" onchange="updateAuditFilter('date', this.value)"
+          class="w-full px-3 py-2 text-sm border border-border rounded-md focus:outline-none focus:border-accent" />
+      </div>
+      ${logs.length === 0 ? '<div class="text-center py-8 text-muted text-sm">没有匹配的审计记录，尝试调整筛选条件</div>' : ''}
+
+      <!-- 日志表 -->
+      <div class="overflow-x-auto border border-border rounded-lg">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="th text-left">
+              <th class="px-4 py-2.5">时间</th>
+              <th class="py-2.5">操作人</th>
+              <th class="py-2.5">操作类型</th>
+              <th class="py-2.5">操作对象</th>
+              <th class="py-2.5">来源 IP</th>
+              <th class="py-2.5">区块链 Hash</th>
+              <th class="py-2.5 pr-4 text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            ${logs.slice(0, 20).map(l => {
+              const isSpecial = l.action.includes('熔断') || l.action.includes('修复') || l.action.includes('删除');
+              return `
+                <tr class="hover:bg-bg ${isSpecial ? 'bg-warning/5' : ''}">
+                  <td class="px-4 py-3 num text-xs text-muted">${fmtDate(l.time, true)}</td>
+                  <td class="font-medium">${l.operator}</td>
+                  <td><span class="text-xs ${isSpecial ? 'bg-warning/10 text-warning border-warning/30' : 'bg-brand-50 text-brand-700 border-brand-200'} border px-1.5 py-0.5 rounded">${l.action}</span></td>
+                  <td class="text-ink/90">${l.subject}</td>
+                  <td class="num text-xs text-muted">${l.ip}</td>
+                  <td class="num text-xs text-muted">${l.hash}</td>
+                  <td class="text-right pr-4">
+                    <button onclick="openLogDetail('${l.id}')" class="text-xs text-brand-600 hover:underline">详情</button>
+                    <span class="mx-1 text-border">|</span>
+                    <button onclick="toast('已验证：' + '${l.id}','success')" class="text-xs text-success hover:underline">验证</button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
+function verifyBlockchain() {
+  const totalLogs = MockData.auditLogs.length;
+  openModal({
+    title: '区块链审计完整性验证',
+    width: 'max-w-lg',
+    content: `
+      <div class="space-y-3">
+        <div class="p-3 bg-success/10 border border-success/30 rounded flex items-center gap-3">
+          <svg class="w-8 h-8 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div>
+            <div class="text-sm font-semibold text-success">✓ 完整性验证通过</div>
+            <div class="text-xs text-muted">所有审计日志的区块链哈希链路完整、未被篡改</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div><span class="text-muted">验证时点：</span><span class="num">${new Date().toLocaleString('zh-CN')}</span></div>
+          <div><span class="text-muted">日志总数：</span><span class="num font-medium">${totalLogs}</span></div>
+          <div><span class="text-muted">已上链记录：</span><span class="num text-success font-medium">${totalLogs} (100%)</span></div>
+          <div><span class="text-muted">异常记录：</span><span class="num text-success">0</span></div>
+        </div>
+        <div class="border-t border-border pt-3">
+          <div class="text-xs font-semibold mb-2">区块链 Merkle 根</div>
+          <div class="text-xs num bg-bg p-2 rounded break-all">0x${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}</div>
+        </div>
+        <div class="border-t border-border pt-3 text-xs text-muted">
+          <div>· 区块链：CCASCEA Audit Chain（私有链）</div>
+          <div>· 共识机制：PBFT</div>
+          <div>· 出块节点：5 个独立运维节点</div>
+          <div>· 验证算法：SHA-256 + Merkle Tree</div>
+        </div>
+      </div>
+    `,
+    footer: `<button onclick="closeModal()" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded hover:bg-brand-700">关闭</button>`
+  });
+}
+function openLogDetail(id) {
+  // 根据 ID 找到具体日志
+  const log = MockData.auditLogs.find(l => l.id === id);
+  if (!log) {
+    toast('未找到日志记录: ' + id, 'warning');
+    return;
+  }
+  // 计算前后关联
+  const idx = MockData.auditLogs.findIndex(l => l.id === id);
+  const prevId = idx > 0 ? MockData.auditLogs[idx - 1].id : '—';
+  const nextId = idx < MockData.auditLogs.length - 1 ? MockData.auditLogs[idx + 1].id : '—';
+  const blockNum = '#' + (1000000 + idx * 10).toLocaleString('en-US');
+  // 构造详细内容
+  const detail = {
+    operator: log.operator,
+    action: log.action,
+    subject: log.subject,
+    timestamp: log.time.toISOString ? log.time.toISOString() : String(log.time),
+    fields_accessed: ['public_grade','public_score','attribution'],
+    data_source: '信用中国 · 全国信用信息共享平台',
+    client: { ip: log.ip, ua: 'Chrome/123.0' },
+    result: 'success',
+    duration_ms: 200 + Math.floor(Math.random() * 600)
+  };
+  openModal({
+    title: '审计日志详情：' + id,
+    content: `
+      <div class="space-y-2 text-sm">
+        <div><span class="text-muted w-28 inline-block">日志 ID：</span><span class="num">${id}</span></div>
+        <div><span class="text-muted w-28 inline-block">操作时间：</span><span class="num">${fmtDate(log.time, true)}</span></div>
+        <div><span class="text-muted w-28 inline-block">操作人：</span><span class="font-medium">${log.operator}</span></div>
+        <div><span class="text-muted w-28 inline-block">操作类型：</span><span>${log.action}</span></div>
+        <div><span class="text-muted w-28 inline-block">操作对象：</span><span>${log.subject}</span></div>
+        <div><span class="text-muted w-28 inline-block">来源 IP：</span><span class="num">${log.ip}</span></div>
+        <div><span class="text-muted w-28 inline-block">区块链区块号：</span><span class="num">${blockNum}</span></div>
+        <div><span class="text-muted w-28 inline-block">完整 Hash：</span><span class="num text-xs break-all">${log.hash}</span></div>
+        <div><span class="text-muted w-28 inline-block">前后日志关联：</span><span class="num">prev: ${prevId} / next: ${nextId}</span></div>
+        <div class="pt-3 border-t border-border">
+          <div class="text-muted mb-1">操作详情（JSON）</div>
+          <pre class="text-xs bg-bg p-3 rounded border border-border overflow-auto">${JSON.stringify(detail, null, 2)}</pre>
+        </div>
+      </div>
+    `
+  });
+}
+
+function askAIAudit() {
+  AIAgent.setScene('audit-qa');
+  const logs = MockData.auditLogs.slice(0, 8);
+  const recent = logs.map(l => `[${l.id}] ${l.time} · ${l.operator} · ${l.action} · 主体=${l.subject || '-'}`).join('\n');
+  AIAgent.send(
+    '请基于本平台审计日志，回答监管/内审在"评级独立性 + 防火墙 + 利益冲突"三方面最常追问的问题，并给出可直接复制到回函的"审计追溯说明"。\n' +
+    '当前最近 8 条审计日志：\n' + recent + '\n\n' +
+    '要求：\n' +
+    '1. 列举监管/内审通常会问的 3 个具体问题（含场景）；\n' +
+    '2. 针对每个问题，从日志中定位关键证据（流水号 + 时间 + 操作人）；\n' +
+    '3. 用"事实-佐证-结论"结构组织追溯说明，正式回函口吻；\n' +
+    '4. 强调区块链 hash 上链 + append-only + 10 年保留三大不可篡改特征；\n' +
+    '5. 引用《信用评级业务程序指引》《关于促进债券市场信用评级行业健康发展的通知》具体条款。'
+  );
+}
+mountLayout('audit-log', renderMain);
+window.openLogDetail = openLogDetail;
+window.askAIAudit = askAIAudit;
+
+// 渲染审计图表
+setTimeout(() => {
+  // 24 小时分布
+  const h = document.getElementById('hourlyChart');
+  if (h) {
+    const c = echarts.init(h);
+    // 模拟一天 24 小时分布：业务时段集中
+    const data = [0,0,0,0,0,1,2,4,8,12,15,18,14,16,20,18,14,10,5,3,2,1,1,0];
+    c.setOption({
+      tooltip: { trigger: 'axis', formatter: '{b}: {c} 次操作' },
+      grid: { left: 35, right: 15, top: 15, bottom: 25 },
+      xAxis: { type: 'category', data: Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+':00'),
+        axisLabel: { fontSize: 9, interval: 1 } },
+      yAxis: { type: 'value', axisLine: { show: false }, splitLine: { lineStyle: { color: '#F1F5F9' } } },
+      series: [{
+        type: 'bar', data: data, barWidth: '70%',
+        itemStyle: { color: function(params) {
+          // 业务时段 9-18 高亮
+          return (params.dataIndex >= 9 && params.dataIndex <= 18) ? '#1F497D' : '#94A3B8';
+        }}
+      }]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+  // 操作类型 TOP 5
+  const at = document.getElementById('actionTypeChart');
+  if (at) {
+    // 统计实际 mock data 中的 action 数量
+    const counts = {};
+    MockData.auditLogs.forEach(l => { counts[l.action] = (counts[l.action]||0) + 1; });
+    const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 5);
+    const c = echarts.init(at);
+    c.setOption({
+      tooltip: { trigger: 'item', formatter: '{b}: {c}' },
+      legend: { orient: 'vertical', right: 0, top: 'middle', textStyle: { fontSize: 10 } },
+      series: [{
+        type: 'pie', radius: ['40%','70%'], center: ['35%','50%'],
+        avoidLabelOverlap: true,
+        label: { show: false },
+        itemStyle: { borderColor: '#fff', borderWidth: 2 },
+        data: sorted.map(([name, value], i) => ({
+          name, value,
+          itemStyle: { color: ['#1F497D','#4A90E2','#16A34A','#F59E0B','#94A3B8'][i] }
+        }))
+      }]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+}, 100);
+</script>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>管理驾驶舱 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 管理驾驶舱（FR-G-003）============== */
+function renderMain() {
+  const c = MockData.cockpit;
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            管理驾驶舱
+            <span class="text-xs text-muted font-normal">FR-G-003 · 评级业务高管视图</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            项目组合、产能、风险、质量、违约率、迁移矩阵的高管视图；按部门 / 时间维度切分。
+          </p>
+        </div>
+        <select class="text-xs px-2 py-1 border border-border rounded">
+          <option>2026-Q2（截至 04-29）</option>
+          <option>2026-Q1</option>
+          <option>2025-Q4</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- 4 大维度 KPI -->
+    <section class="grid grid-cols-4 gap-5 mb-5">
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold">📁 项目组合</h3>
+          <a href="project-intake.html" class="text-xs text-brand-600 hover:underline">详情 →</a>
+        </div>
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center justify-between"><span class="text-muted">在评项目</span><span class="num font-semibold">${c.portfolio.active}</span></div>
+          <div class="flex items-center justify-between"><span class="text-muted">本月完成</span><span class="num font-semibold text-success">${c.portfolio.monthCompleted}</span></div>
+          <div class="flex items-center justify-between"><span class="text-muted">触发熔断</span><span class="num font-semibold text-danger">${c.portfolio.fused}</span></div>
+          <div class="flex items-center justify-between"><span class="text-muted">信用修复案</span><span class="num font-semibold">${c.portfolio.repairs}</span></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold">⚡ 产能</h3>
+          <span class="text-xs text-success">SLA 达标</span>
+        </div>
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center justify-between"><span class="text-muted">平均交付周期</span><span class="num font-semibold">${c.productivity.avgCycleDays} 天</span></div>
+          <div class="flex items-center justify-between"><span class="text-muted">按时交付率</span><span class="num font-semibold text-success">${c.productivity.onTimeRate}%</span></div>
+          <div class="flex items-center justify-between"><span class="text-muted">值班项目</span><span class="num font-semibold text-warning">${c.productivity.oncallProjects}</span></div>
+        </div>
+        <div class="h-1.5 mt-3 bg-bg rounded overflow-hidden"><div class="h-full bg-success" style="width:${c.productivity.onTimeRate}%"></div></div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold">📊 质量</h3>
+          <a href="quality-checks.html" class="text-xs text-brand-600 hover:underline">详情 →</a>
+        </div>
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center justify-between"><span class="text-muted">12 月违约率</span><span class="num font-semibold text-success">${(c.quality.defaultRate1y*100).toFixed(2)}%</span></div>
+          <div class="flex items-center justify-between"><span class="text-muted">迁移稳定性</span><span class="num font-semibold text-success">${c.quality.migrationStability}</span></div>
+          <div class="flex items-center justify-between"><span class="text-muted">利差单调性</span><span class="num font-semibold text-success">${c.quality.spreadMonotonic}</span></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-card p-5 ${c.risk.hardTriggers>0?'border-2 border-danger':''}">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold ${c.risk.hardTriggers>0?'text-danger':''}">🚨 风险</h3>
+          <a href="compliance-rules.html" class="text-xs text-brand-600 hover:underline">详情 →</a>
+        </div>
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center justify-between"><span class="text-muted">D 级红线</span><span class="num font-semibold ${c.risk.hardTriggers>0?'text-danger':'text-success'}">${c.risk.hardTriggers}</span></div>
+          <div class="flex items-center justify-between"><span class="text-muted">合规事件</span><span class="num font-semibold text-warning">${c.risk.complianceEvents}</span></div>
+          <div class="flex items-center justify-between"><span class="text-muted">利益冲突命中</span><span class="num font-semibold text-warning">${c.risk.conflictHits}</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 趋势图 + 部门 -->
+    <section class="grid grid-cols-3 gap-5 mb-5">
+      <div class="col-span-2 bg-white rounded-lg shadow-card p-5">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          季度产能趋势
+        </h3>
+        <div id="trend-chart" class="h-72"></div>
+      </div>
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          部门绩效
+        </h3>
+        <div class="space-y-3">
+          ${c.teams.map(t => `
+            <div class="border border-border rounded p-3 hover:border-brand-300">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">${t.name}</span>
+                <span class="num text-base font-semibold text-brand-600">${t.completed}</span>
+              </div>
+              <div class="text-xs text-muted mt-1">完成 ${t.completed} / 待办 ${t.pending} · 平均 ${t.avgDays}d</div>
+              <div class="h-1 mt-2 bg-bg rounded overflow-hidden"><div class="h-full bg-brand-500" style="width:${(t.completed/(t.completed+t.pending)*100).toFixed(0)}%"></div></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </section>
+
+    <!-- 行业组合 + 等级分布 -->
+    <section class="grid grid-cols-2 gap-5">
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          行业组合分布
+        </h3>
+        <div id="sector-chart" class="h-72"></div>
+      </div>
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          等级分布
+        </h3>
+        <div id="grade-chart" class="h-72"></div>
+      </div>
+    </section>
+  `;
+}
+
+function initCharts() {
+  const trend = document.getElementById('trend-chart');
+  if (trend) {
+    const c = echarts.init(trend);
+    c.setOption({
+      tooltip: { trigger:'axis' },
+      legend: { textStyle:{ color:'#64748B', fontSize:11 }, top:0 },
+      grid: { left:50, right:30, top:30, bottom:30 },
+      xAxis: { type:'category', data:['Q1','Q2','Q3','Q4'], axisLabel:{ color:'#64748B' } },
+      yAxis: [
+        { type:'value', name:'完成项目', axisLabel:{ color:'#64748B' } },
+        { type:'value', name:'平均天数', axisLabel:{ color:'#64748B' } }
+      ],
+      series: [
+        { type:'bar', name:'完成项目', data:[112, 124, 0, 0], itemStyle:{ color:'#2E74B5' } },
+        { type:'line', name:'平均天数', yAxisIndex:1, data:[6.2, 5.6, 0, 0], smooth:true, itemStyle:{ color:'#16A34A' } }
+      ]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+  const sector = document.getElementById('sector-chart');
+  if (sector) {
+    const c = echarts.init(sector);
+    c.setOption({
+      tooltip: { trigger:'item' },
+      legend: { type:'scroll', textStyle:{ color:'#64748B', fontSize:11 }, bottom:0 },
+      series: [{
+        type: 'pie',
+        radius: ['40%','70%'],
+        label: { color:'#1E293B', fontSize:10 },
+        data: MockData.distribution.bySector.map(s => ({ name: s.sector, value: s.cnt }))
+      }]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+  const grade = document.getElementById('grade-chart');
+  if (grade) {
+    const c = echarts.init(grade);
+    c.setOption({
+      tooltip: { trigger:'axis' },
+      grid: { left:50, right:20, top:20, bottom:30 },
+      xAxis: { type:'category', data:['AAA','AA+','AA','AA-','A+','A','A-','BBB+','BBB','BBB-','BB+','BB','B','C'], axisLabel:{ color:'#64748B', fontSize:9 } },
+      yAxis: { type:'value', axisLabel:{ color:'#64748B' } },
+      series: [{
+        type:'bar',
+        data: [12, 18, 26, 32, 38, 28, 22, 18, 14, 8, 6, 4, 2, 1],
+        itemStyle: { color: (p) => p.dataIndex < 7 ? '#16A34A' : p.dataIndex < 12 ? '#F59E0B' : '#DC2626' }
+      }]
+    });
+    window.addEventListener('resize', () => c.resize());
+  }
+}
+
+mountLayout('cockpit', renderMain);
+setTimeout(initCharts, 50);
+</script>
+</body>
+</html>

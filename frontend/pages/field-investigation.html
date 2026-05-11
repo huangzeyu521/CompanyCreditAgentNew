@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>现场调研工具 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== P0-1 现场调研工具
+ * 评级师实地调研：GPS 打卡 + 拍照 + 录像 + 受访人电子签字
+ * 依据：《信用评级业务尽职调查制度》第十一条 实地调研合规要求 ============== */
+function renderMain() {
+  const visits = MockData.fieldVisits;
+  const cur = visits.find(v => v.status === '进行中') || visits[0];
+  return `
+    <!-- 数据声明 -->
+    <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+      <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span><strong class="text-ink">数据声明：</strong>主体名称等事实型字段 100% 来自公开资料；GPS 坐标 / 照片数 / 签字次数等运营字段为 CCASCEA 演示数据。</span>
+    </div>
+
+    ${(function(){
+      const p = (typeof getCurrentProject === 'function') ? getCurrentProject() : null;
+      if (!p) {
+        return `<div class="bg-warning/10 border border-warning/30 rounded-md px-4 py-3 mb-4 text-sm text-warning flex items-center gap-2">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 9v2m0 4h.01m-6.93 1h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 17c-.77 1.33.19 3 1.73 3z"/></svg>
+          <strong>未选择项目</strong>：当前数据为通用演示，建议从 <a href="project-intake.html" class="text-brand-600 hover:underline font-medium">"我的项目"</a> 进入指定项目，查看该项目的数据。
+        </div>`;
+      }
+      return `<div class="bg-brand-50/60 border border-brand-200 rounded-md px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-2">
+        <div class="text-sm">
+          <span class="text-muted">当前项目：</span>
+          <strong class="text-brand-700">${p.subject}</strong>
+          <span class="text-xs text-muted ml-2">(${p.id} · ${p.industry || '—'})</span>
+        </div>
+        <a href="project-workbench.html?projectId=${p.id}" class="text-xs text-brand-600 hover:underline">← 返回项目工作台</a>
+      </div>`;
+    })()}
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            现场调研工具
+            <span class="text-xs text-muted font-normal ml-2">P0 · FR-B-010 · 《尽调制度》第十一条</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            评级师实地调研专用工具：<strong>GPS 打卡留痕 + 现场拍照 / 录像 + 受访人电子签字 + 实时上传到工作底稿</strong>。
+            首次评级 / 连续 1 年 / 跟踪 2 年 / 项目组全部更换 / 重大事项 五种触发条件下强制启用，调研时间 ≥ 2 个工作日。
+          </p>
+        </div>
+        <button onclick="askAIField()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手 · 调研要点</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本月现场调研</div><div class="num text-2xl font-bold text-brand-600 mt-1">${visits.length}</div></div>
+        <div class="border border-border rounded-md p-3 ${cur.status==='进行中'?'bg-warning/5':''}"><div class="text-xs text-muted">进行中</div><div class="num text-2xl font-bold text-warning mt-1">${visits.filter(v=>v.status==='进行中').length}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">累计照片</div><div class="num text-2xl font-bold text-brand-700 mt-1">${visits.reduce((s,v)=>s+v.photos,0)}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">累计签字</div><div class="num text-2xl font-bold text-success mt-1">${visits.reduce((s,v)=>s+v.signatures,0)}</div></div>
+        <div class="border border-border rounded-md p-3 ${visits.filter(v=>!v.gpsCheck).length>0?'bg-danger/5':''}"><div class="text-xs text-muted">GPS 异常</div><div class="num text-2xl font-bold text-danger mt-1">${visits.filter(v=>!v.gpsCheck).length}</div></div>
+      </div>
+    </section>
+
+    <!-- 当前进行中调研（移动端可用版面）-->
+    <section class="grid grid-cols-3 gap-5 mb-5">
+      <div class="col-span-2 bg-white rounded-lg shadow-card p-5">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-warning rounded"></span>
+          ${cur.status==='进行中' ? '正在进行的现场调研' : '最近一次现场调研'}
+          <span class="text-xs num text-muted">${cur.id}</span>
+        </h3>
+        <div class="grid grid-cols-2 gap-4 text-sm mb-4">
+          <div><span class="text-muted text-xs">受评对象：</span><div class="font-medium">${cur.subject}</div></div>
+          <div><span class="text-muted text-xs">关联项目：</span><div class="num">${cur.project}</div></div>
+          <div class="col-span-2"><span class="text-muted text-xs">调研地点：</span><div>${cur.location}</div></div>
+          <div><span class="text-muted text-xs">调研人员：</span><div>${cur.visitor}</div></div>
+          <div><span class="text-muted text-xs">开始时间：</span><div class="num">${cur.startAt}</div></div>
+        </div>
+        <!-- 调研动作 -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+          <button onclick="checkin()" class="border border-success/30 bg-success/5 rounded-lg p-4 text-center hover:bg-success hover:text-white transition-colors">
+            <div class="text-2xl mb-1">📍</div>
+            <div class="text-sm font-medium">GPS 打卡</div>
+            <div class="text-[10px] text-muted mt-1">${cur.gpsCheck ? '✓ 已打卡' : '⚠ 待打卡'}</div>
+          </button>
+          <button onclick="takePhoto()" class="border border-border rounded-lg p-4 text-center hover:border-brand-300 hover:bg-brand-50/30 transition-colors">
+            <div class="text-2xl mb-1">📷</div>
+            <div class="text-sm font-medium">拍照上传</div>
+            <div class="text-[10px] text-muted mt-1">已传 <span class="num">${cur.photos}</span> 张</div>
+          </button>
+          <button onclick="recordVideo()" class="border border-border rounded-lg p-4 text-center hover:border-brand-300 hover:bg-brand-50/30 transition-colors">
+            <div class="text-2xl mb-1">🎥</div>
+            <div class="text-sm font-medium">录像上传</div>
+            <div class="text-[10px] text-muted mt-1">已传 <span class="num">${cur.videos}</span> 条</div>
+          </button>
+          <button onclick="signByInterviewee()" class="border border-border rounded-lg p-4 text-center hover:border-brand-300 hover:bg-brand-50/30 transition-colors">
+            <div class="text-2xl mb-1">✍️</div>
+            <div class="text-sm font-medium">受访人签字</div>
+            <div class="text-[10px] text-muted mt-1">已签 <span class="num">${cur.signatures}</span> 次</div>
+          </button>
+        </div>
+        <!-- 调研留痕时间轴 -->
+        <div class="mt-5 pt-4 border-t border-border">
+          <div class="text-xs font-semibold mb-2">现场动作留痕（自动审计链）</div>
+          <ol class="text-xs space-y-1.5 leading-relaxed">
+            ${[
+              ['09:02','📍 GPS 打卡：江西省贵溪市冶金大道 15 号（精度 3m）'],
+              ['09:14','📷 拍照 8 张：厂区门牌 / 总部办公楼 / 生产车间'],
+              ['10:00','🎙️ CFO 访谈开始（已挂载到访谈管理）'],
+              ['11:15','✍️ CFO 张总监 电子签字（访谈记录 1）'],
+              ['14:30','🎥 录像 1 条：精炼车间生产线（时长 2:18）'],
+              ['16:45','📷 拍照 10 张：库存堆场 / 出货车辆 / 销售合同样本'],
+              ['17:30','✍️ 销售总监 电子签字（访谈记录 2）']
+            ].map(([t,a]) => `
+              <li class="flex items-start gap-2">
+                <span class="num text-muted w-12">${t}</span>
+                <span class="text-ink/85 flex-1">${a}</span>
+              </li>
+            `).join('')}
+          </ol>
+        </div>
+      </div>
+
+      <!-- 合规校验 -->
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          合规校验
+        </h3>
+        <ul class="text-xs space-y-3 leading-relaxed">
+          <li class="flex items-start gap-2"><span class="${cur.gpsCheck?'text-success':'text-danger'} mt-0.5">${cur.gpsCheck?'✓':'✗'}</span><div><strong>GPS 与受评地址核对</strong><div class="text-muted text-[10px]">实际坐标偏离注册地 ≤ 50m</div></div></li>
+          <li class="flex items-start gap-2"><span class="text-success mt-0.5">✓</span><div><strong>调研时长 ≥ 2 工作日</strong><div class="text-muted text-[10px]">第十一条强制要求</div></div></li>
+          <li class="flex items-start gap-2"><span class="text-success mt-0.5">✓</span><div><strong>访谈记录受访人签字</strong><div class="text-muted text-[10px]">所有访谈须签字确认</div></div></li>
+          <li class="flex items-start gap-2"><span class="text-success mt-0.5">✓</span><div><strong>禁问事项检查</strong><div class="text-muted text-[10px]">不讨论评级费用、承诺级别</div></div></li>
+          <li class="flex items-start gap-2"><span class="text-success mt-0.5">✓</span><div><strong>资料/数据离机加密</strong><div class="text-muted text-[10px]">现场设备采集数据自动加密上传</div></div></li>
+        </ul>
+        <div class="mt-4 pt-3 border-t border-border">
+          <button onclick="finishVisit()" class="w-full text-xs py-2 bg-success text-white rounded hover:opacity-90">✓ 结束调研 · 归档至工作底稿</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 历史调研记录 -->
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          历史调研记录
+        </h3>
+      </div>
+      <table class="w-full text-sm">
+        <thead><tr class="th text-left">
+          <th class="px-4 py-2.5">调研编号</th>
+          <th class="py-2.5">受评对象</th>
+          <th class="py-2.5">地点</th>
+          <th class="py-2.5">调研人员</th>
+          <th class="py-2.5">起止时间</th>
+          <th class="py-2.5 text-center">天数</th>
+          <th class="py-2.5 text-center">📷</th>
+          <th class="py-2.5 text-center">🎥</th>
+          <th class="py-2.5 text-center">✍️</th>
+          <th class="py-2.5 text-center">GPS</th>
+          <th class="py-2.5">状态</th>
+        </tr></thead>
+        <tbody class="divide-y divide-border">
+          ${visits.map(v => `
+            <tr class="hover:bg-bg">
+              <td class="px-4 py-2.5 num text-xs">${v.id}</td>
+              <td class="text-sm font-medium">${v.subject}</td>
+              <td class="text-xs text-muted leading-snug max-w-xs">${v.location}</td>
+              <td class="text-xs">${v.visitor}</td>
+              <td class="text-xs num text-muted">${v.startAt}<br/>${v.endAt || '<span class="text-warning">进行中</span>'}</td>
+              <td class="text-center text-xs num">${v.durationDays}</td>
+              <td class="text-center text-xs num">${v.photos}</td>
+              <td class="text-center text-xs num">${v.videos}</td>
+              <td class="text-center text-xs num">${v.signatures}</td>
+              <td class="text-center text-xs ${v.gpsCheck?'text-success':'text-danger'}">${v.gpsCheck?'✓':'✗'}</td>
+              <td><span class="text-xs px-1.5 py-0.5 rounded ${v.status==='已完成'?'bg-success/10 text-success border border-success/30':'bg-warning/10 text-warning border border-warning/30'}">${v.status}</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </section>
+  `;
+}
+
+function checkin()    { toast('GPS 打卡完成（精度 3m，与受评地址匹配）', 'success'); }
+function takePhoto()  { toast('已上传 1 张照片到工作底稿', 'success'); }
+function recordVideo(){ toast('录像上传中（2:18，加密传输）...', 'info', 1500); }
+function signByInterviewee() {
+  openModal({
+    title: '受访人电子签字',
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="text-xs text-muted">访谈记录：CFO 访谈 · 财务与偿债（4 月 5 日 14:00）</div>
+        <div class="border border-border rounded p-3 bg-bg/40 text-xs leading-relaxed max-h-32 overflow-y-auto">
+          受访人确认：本次访谈记录由远东资信项目组准确记录，本人对访谈内容知悉并确认无误。访谈过程中未涉及评级费用、承诺级别等违规事项。
+        </div>
+        <div class="text-xs text-muted">受访人手写签字 / U 盾签名</div>
+        <div class="border-2 border-dashed border-border rounded h-24 flex items-center justify-center text-muted text-xs">手写板 / 触屏签字区域</div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded">取消</button>
+      <button onclick="closeModal();toast('签字已留痕（含时间戳 + GPS）','success')" class="px-3 py-1.5 text-sm bg-success text-white rounded">提交签字</button>
+    `
+  });
+}
+function finishVisit() {
+  confirmDialog({
+    title:'结束本次调研?',
+    content:'<p class="text-sm">调研结束后所有现场资料将自动归档至工作底稿（B-DD-002 实地调研留痕），不可二次修改。</p>',
+    okText:'结束并归档', cancelText:'继续调研'
+  }).then(ok => { if (ok) toast('调研已归档，跟踪期开始','success'); });
+}
+function askAIField() {
+  const visits = MockData.fieldVisits;
+  const cur = visits.find(v => v.status === '进行中') || visits[0];
+  const ctx = '【当前调研】' + cur.subject + ' · ' + cur.location + '\n' +
+              '【进度】GPS 打卡 ' + (cur.gpsCheck?'✓':'✗') + ' · 照片 ' + cur.photos + ' 张 · 录像 ' + cur.videos + ' 条 · 签字 ' + cur.signatures + ' 次\n' +
+              '【调研人员】' + cur.visitor;
+  AIAgent.setScene('field-investigation');
+  AIAgent.send('请基于以上现场调研进度：① 还需观察的重点（厂区/车间/仓库哪些角度）② 待补拍照清单 ③ 受访人签字遗漏对象 ④ 现场禁问事项再提醒 ⑤ 调研结束前的合规校验 6 项 ⑥ 引用《尽调制度》第十一条。', ctx);
+}
+
+mountLayout('field-investigation', renderMain);
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>行业研究库 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 远东研究 · 行业研究库（263 份） ============== */
+let filterIndustry = 'all';
+function renderMain() {
+  const list = MockData.industryResearch;
+  const stats = MockData.researchStats;
+  const filtered = filterIndustry === 'all' ? list : list.filter(r => r.industry === filterIndustry);
+  const industries = ['all', ...Array.from(new Set(list.map(r => r.industry)))];
+
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            远东研究 · 行业研究库
+            <span class="text-xs text-muted font-normal">${stats.total}+ 份行业深度研究</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            远东资信研究矩阵：行业研究 · 信用研究 · 债市研究 · 宏观经济与政策研究 · 区域观察 · ESG 研究 · 系列研究成果。
+            研究内容用于支撑 BACP "行业地位"评分、AM "预期调整"、信评委议程包"行业对比"段落。
+          </p>
+        </div>
+        <button onclick="askAIResearch()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">研报总数</div><div class="num text-2xl font-bold text-brand-600 mt-1">${stats.total}+</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">本月新增</div><div class="num text-2xl font-bold text-success mt-1">${stats.monthly}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">下载次数</div><div class="num text-2xl font-bold text-brand-700 mt-1">${stats.downloads}</div></div>
+        <div class="border border-border rounded-md p-3"><div class="text-xs text-muted">行业覆盖</div><div class="num text-2xl font-bold text-brand-600 mt-1">${stats.byCategory}+</div></div>
+      </div>
+    </section>
+
+    <!-- 研究分类 -->
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+        <span class="w-1 h-4 bg-brand-600 rounded"></span>
+        研究矩阵 · 8 大类别
+      </h3>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        ${[
+          { name:'行业研究', cnt:263, icon:'🏭', desc:'工商企业 / 城投 / 金融 / 化工 / 钢铁等' },
+          { name:'信用研究', cnt:128, icon:'📊', desc:'违约预警 / 等级迁移 / 信用利差' },
+          { name:'债市研究', cnt: 96, icon:'📈', desc:'一级发行 / 二级利差 / 评级变动' },
+          { name:'宏观经济与政策', cnt:84, icon:'🌐', desc:'国际观察 / 国内经济 / 政策研究' },
+          { name:'区域经济与信用', cnt:42, icon:'🗺️', desc:'四川 / 广东 / 江苏 / 浙江等' },
+          { name:'远东 ESG', cnt:32, icon:'🌱', desc:'ESG 评价 / 双碳目标 / 范围三披露' },
+          { name:'绿色金融研究', cnt:28, icon:'💚', desc:'绿色债券 / 转型金融 / CBAM' },
+          { name:'系列研究成果', cnt:16, icon:'📚', desc:'专题深度研究' }
+        ].map(c => `
+          <div class="border border-border rounded-lg p-4 hover:border-brand-300 hover:bg-brand-50/30 cursor-pointer">
+            <div class="text-2xl">${c.icon}</div>
+            <div class="text-sm font-medium mt-2">${c.name}</div>
+            <div class="num text-xl font-bold text-brand-600 mt-1">${c.cnt}</div>
+            <div class="text-[10px] text-muted leading-snug mt-1">${c.desc}</div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <!-- 行业筛选 + 研报列表 -->
+    <section class="bg-white rounded-lg shadow-card">
+      <div class="px-5 py-3 border-b border-border flex items-center justify-between flex-wrap gap-2">
+        <h3 class="text-sm font-semibold flex items-center gap-2">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          行业研究最新（${filtered.length} / ${list.length}）
+        </h3>
+        <div class="flex flex-wrap gap-1">
+          ${industries.map(i => `
+            <button onclick="setFilter('${i}')" class="text-xs px-2 py-1 rounded ${filterIndustry===i?'bg-brand-600 text-white':'border border-border hover:bg-bg'}">
+              ${i==='all'?'全部':i}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 p-5">
+        ${filtered.map(r => `
+          <div class="border border-border rounded-lg p-4 hover:border-brand-300 hover:bg-brand-50/30 cursor-pointer" onclick="viewResearch('${r.id}')">
+            <div class="flex items-start justify-between gap-2">
+              <div class="text-sm font-medium leading-tight">${r.title}</div>
+              <span class="text-[10px] num text-muted whitespace-nowrap">${r.date}</span>
+            </div>
+            <div class="text-xs text-muted mt-2">作者：${r.author}</div>
+            <div class="flex items-center justify-between mt-3 pt-2 border-t border-border">
+              <div class="flex flex-wrap gap-1">
+                ${r.tags.map(t => {
+                  const cls = t === '上行' ? 'bg-success/10 text-success'
+                            : t === '下行' ? 'bg-warning/10 text-warning'
+                            : 'bg-bg text-muted';
+                  return `<span class="text-[10px] px-1.5 py-0.5 rounded ${cls}">${t}</span>`;
+                }).join('')}
+              </div>
+              <span class="text-[10px] text-muted num">${r.pages} 页</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function setFilter(i) {
+  filterIndustry = i;
+  document.getElementById('app').innerHTML = '';
+  mountLayout('industry-research', renderMain);
+}
+
+function viewResearch(id) {
+  const r = MockData.industryResearch.find(x => x.id === id);
+  if (!r) return;
+  openModal({
+    title: r.title,
+    width: 'max-w-2xl',
+    content: `
+      <div class="space-y-3 text-sm">
+        <div class="grid grid-cols-3 gap-3 text-xs">
+          <div><span class="text-muted">行业：</span>${r.industry}</div>
+          <div><span class="text-muted">作者：</span>${r.author}</div>
+          <div><span class="text-muted">日期：</span><span class="num">${r.date}</span></div>
+          <div><span class="text-muted">页数：</span><span class="num">${r.pages}</span></div>
+          <div class="col-span-2"><span class="text-muted">标签：</span>${r.tags.join(' / ')}</div>
+        </div>
+        <div class="border-t border-border pt-3">
+          <div class="font-medium mb-1">研究目录（演示）</div>
+          <ol class="text-xs text-muted leading-relaxed pl-4 list-decimal space-y-1">
+            <li>行业概述与宏观背景</li>
+            <li>行业景气与周期判断</li>
+            <li>关键财务指标对比</li>
+            <li>典型主体信用观察</li>
+            <li>风险关注与展望</li>
+            <li>结论与评级影响</li>
+          </ol>
+        </div>
+      </div>
+    `,
+    footer: `
+      <button onclick="closeModal()" class="px-3 py-1.5 text-sm border border-border rounded">关闭</button>
+      <button onclick="closeModal();toast('PDF 已下载','success');" class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded">下载 PDF</button>
+    `
+  });
+}
+
+function askAIResearch() {
+  AIAgent.setScene('kb-rag');
+  const reports = (window.MockData && MockData.industryResearch) || [];
+  const stats = (window.MockData && MockData.researchStats) || {};
+  const ctx = '研究报告库合计 ' + (stats.total || reports.length) + ' 份 · 本月新增 ' + (stats.monthly || 0) + ' 份\n' +
+    reports.slice(0, 8).map(r => '· ' + r.id + ' · 行业=' + (r.industry || '—') + ' · 标题=' + r.title + ' · 作者=' + (r.author || '—') + ' · 日期=' + (r.date || '—')).join('\n');
+  AIAgent.send(
+    '请基于远东资信研究报告库，给出"研究→评级落地的应用矩阵 + 行业风险预警 + 评级标准委员会议程建议"三段式专业咨询。\n' +
+    '当前研究库（节选）：\n' + ctx + '\n\n' +
+    '要求：\n' +
+    '1. 研究→评级落地映射：8 大研究类别（宏观 / 行业 / 公司 / 区域 / 政策 / 主题 / 国际 / ESG）分别对应到 BACP 哪个一级要素 + AM 哪个调整因素；\n' +
+    '2. 本季度需要重点跟踪的 3 个行业（含潜在等级下调主体名单的特征画像）；\n' +
+    '3. 给评级师的"行业研究→评级建模"4 步落地工作流（含工具与文档）；\n' +
+    '4. 评级标准委员会下次议程建议：哪些行业的方法学需要审议、哪些参数需要更新；\n' +
+    '5. 给客户的差异化研究订阅推荐策略（按行业 / 评级类型 / 客户规模）；\n' +
+    '6. 引用《评级方法、模型与程序的生效、改进和定期审查制度》具体条款。',
+    ctx
+  );
+}
+
+mountLayout('industry-research', renderMain);
+</script>
+</body>
+</html>

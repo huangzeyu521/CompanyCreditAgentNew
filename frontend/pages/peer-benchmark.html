@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>同业对标 · CCASCEA</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+</head>
+<body>
+<div id="app"></div>
+<script src="../assets/js/config.js?v=20260505i"></script>
+<script src="../assets/js/mock-data.js?v=20260505i"></script>
+<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
+<script src="../assets/js/common.js?v=20260505i"></script>
+<script src="../assets/js/layout.js?v=20260505i"></script>
+<script src="../assets/js/prompts.js?v=20260505i"></script>
+<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script>
+/* ============== 同业对标（FR-C-008）============== */
+function renderMain() {
+  const peers = MockData.peers;
+  const rows = peers.map(p => `
+    <tr class="${p.isSelf?'bg-brand-50 font-semibold':''} hover:bg-bg">
+      <td class="px-4 py-2.5 text-sm">${p.isSelf?'<span class="text-brand-700">★ </span>':''}${p.name}</td>
+      <td>${gradeBadge(p.grade)}</td>
+      <td class="text-xs num text-right pr-2">${fmtNum(p.revenue)}</td>
+      <td class="text-xs num text-right pr-2">${fmtNum(p.netProfit)}</td>
+      <td class="text-xs num text-right pr-2">${p.debtRatio}</td>
+      <td class="text-xs num text-right pr-4">${p.roe}</td>
+    </tr>
+  `).join('');
+  return `
+    <!-- 数据来源 / 演示性质声明 -->
+        <div class="bg-bg/60 border border-border rounded-md px-4 py-2 mb-4 text-[11px] text-muted leading-relaxed flex items-start gap-2">
+          <svg class="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong class="text-ink">数据声明：</strong>本页面"主体名称、统一社会信用代码、注册地址、法定代表人、注册资本、上市状态、行业类别"等<strong>事实型字段</strong> 100% 来自公开资料（国家企业信用信息公示系统 / 上市公司年报 / 信用中国 / 企业官网 / 远东资信公开评级报告）；"信用等级、KPI、流水编号、调用次数、订阅时间、扣分事件、PD / LGD 调整、合规命中"等<strong>运营字段</strong>为 CCASCEA 智能体演示数据，仅供产品功能展示。</span>
+        </div>
+
+    <section class="bg-white rounded-lg shadow-card p-5 mb-5">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-lg font-semibold flex items-center gap-2">
+            <span class="w-1 h-5 bg-brand-600 rounded"></span>
+            同业对标
+            <span class="text-xs text-muted font-normal">FR-C-008</span>
+          </h1>
+          <p class="text-xs text-muted mt-2 leading-relaxed">
+            支持选定行业的可比同业自动筛选与关键财务 / 经营 / 信用指标对标；
+            服务于 BACP "行业地位"评分、AM "预期调整"、信评委议程包"同业对比"段落。
+          </p>
+        </div>
+        <button onclick="askAIPeer()" class="text-xs px-3 py-1.5 grad-deep-blue text-white rounded-md hover:opacity-90">AI 助手</button>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-2 gap-5">
+      <!-- 财务对标表 -->
+      <div class="bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            财务与等级对标（钢铁行业 5 家）
+          </h3>
+        </div>
+        <table class="w-full text-sm">
+          <thead><tr class="th text-left">
+            <th class="px-4 py-2">主体</th>
+            <th class="py-2">等级</th>
+            <th class="py-2 text-right pr-2">营收（万元）</th>
+            <th class="py-2 text-right pr-2">净利润</th>
+            <th class="py-2 text-right pr-2">资产负债率</th>
+            <th class="py-2 text-right pr-4">ROE</th>
+          </tr></thead>
+          <tbody class="divide-y divide-border">${rows}</tbody>
+        </table>
+      </div>
+
+      <!-- 雷达图对标 -->
+      <div class="bg-white rounded-lg shadow-card">
+        <div class="px-5 py-3 border-b border-border">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <span class="w-1 h-4 bg-brand-600 rounded"></span>
+            5 维度雷达对标（业务 / 盈利 / 偿付 / 流动性 / ESG）
+          </h3>
+        </div>
+        <div id="peer-radar" class="h-80"></div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-2 gap-5 mt-5">
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          行业地位判断
+        </h3>
+        <div class="text-sm leading-relaxed text-ink/85">
+          本主体在钢铁制造细分领域营业总收入位列<strong class="text-brand-600">第 3</strong>，市场份额约 <strong class="text-brand-600">18%</strong>，
+          盈利能力（ROE 14.7%）位居行业<strong class="text-brand-600">前 30%</strong>，但资产负债率 57.9% 略高于行业中位 (54.6%)。
+        </div>
+        <div class="mt-3 p-3 bg-brand-50 border border-brand-100 rounded text-xs leading-relaxed">
+          <strong class="text-brand-700">综合判断：</strong>本主体属于行业头部企业，规模与盈利稳健，杠杆率偏高但符合重资产行业特性。
+          建议在 BACP "业务状况"与"盈利能力"给予正向评分；流动性偏紧需 AM 关注。
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-card p-5">
+        <h3 class="text-sm font-semibold flex items-center gap-2 mb-3">
+          <span class="w-1 h-4 bg-brand-600 rounded"></span>
+          投资人友好型摘要
+        </h3>
+        <div class="text-sm leading-relaxed text-ink/85">
+          相比同业 5 家，本主体营收第 3、ROE 14.7%（行业均值 11.8%）；资产负债率 57.9% 略高于均值 (54.6%)。
+          盈利能力与现金流稳健，新能源转型投入加大但银行授信备用充足；建议关注短期偿债节奏。
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function initRadar() {
+  const el = document.getElementById('peer-radar');
+  if (!el) return;
+  const c = echarts.init(el);
+  c.setOption({
+    tooltip: {},
+    legend: { textStyle:{ color:'#64748B', fontSize:11 }, top:0 },
+    radar: {
+      indicator: [
+        { name:'业务状况', max:100 },
+        { name:'盈利能力', max:100 },
+        { name:'偿付能力', max:100 },
+        { name:'流动性',   max:100 },
+        { name:'ESG',     max:100 }
+      ],
+      splitArea: { areaStyle:{ color:['#F8FAFC','#FFFFFF'] } },
+      axisName: { color:'#1E293B', fontSize:11 }
+    },
+    series: [{
+      type:'radar',
+      data: [
+        { value:[88, 86, 78, 70, 88], name:'本主体', itemStyle:{color:'#2E74B5'}, areaStyle:{color:'rgba(46,116,181,0.18)'} },
+        { value:[82, 75, 76, 78, 70], name:'行业均值', itemStyle:{color:'#F59E0B'}, areaStyle:{color:'rgba(245,158,11,0.10)'}, lineStyle:{type:'dashed'} },
+        { value:[92, 78, 82, 76, 86], name:'行业 TOP1（同业 A）', itemStyle:{color:'#16A34A'}, areaStyle:{color:'rgba(22,163,74,0.10)'}, lineStyle:{type:'dotted'} }
+      ]
+    }]
+  });
+  window.addEventListener('resize', () => c.resize());
+}
+
+function askAIPeer() {
+  const peers = MockData.peers;
+  const ctx = '【可比同业 5 家财务数据】\n' +
+              peers.map(p => '· ' + p.name + '：' + p.grade + ' 级 / 营收 ' + fmtNum(p.revenue) + '万 / 净利 ' + fmtNum(p.netProfit) + '万 / 资产负债率 ' + p.debtRatio + ' / ROE ' + p.roe).join('\n');
+  AIAgent.setScene('peer-compare');
+  AIAgent.send('请基于以上同业数据：① 财务结构差异（资产负债率 / 毛利率 / 现金流 / 利润率）逐项对比 ② 评级差异原因（同行业 vs 本主体）③ 行业地位判断（前 X% / 中位 / 后 X%）④ 投资人友好型摘要（80 字内）⑤ 给评级师的 3 条决策建议。', ctx);
+}
+
+mountLayout('peer-benchmark', renderMain);
+initRadar();
+</script>
+</body>
+</html>
