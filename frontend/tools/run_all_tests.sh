@@ -25,7 +25,8 @@ for f in frontend/tools/debug_master.cjs \
          frontend/tools/deep_audit.cjs \
          frontend/tools/e2e_project_scope.cjs \
          frontend/tools/e2e_conflict_detail.cjs \
-         frontend/tools/e2e_project_detail_v2.cjs; do
+         frontend/tools/e2e_project_detail_v2.cjs \
+         frontend/tools/e2e_last_project_memory.cjs; do
   base=$(basename "$f")
   log="$TMPDIR/$base.log"
   # 第一次跑

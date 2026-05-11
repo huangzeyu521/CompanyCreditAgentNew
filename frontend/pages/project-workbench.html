@@ -33,7 +33,10 @@ function getProject() {
       return null;
     }
   } else {
-    p = list[0];
+    // 无 projectId → 不再静默 fallback 到 projects[0]
+    // 检查 localStorage 中是否有最近项目，有就显式提示用户继续
+    window.__noProjectSelected = true;
+    return null;
   }
   if (!p) return null;
   // 兜底：缺 stages / timeline / currentStage 时 lazy build
@@ -58,12 +61,18 @@ function renderMain() {
   const p = getProject();
   if (!p) {
     const invalidId = window.__invalidProjectId;
+    // 无项目 → 检查 lastProjectId，若有则显式提供"继续上次"入口
+    const lastId = (typeof getLastProjectId === 'function') ? getLastProjectId() : null;
+    const lastProj = lastId ? (MockData.projects || []).find(x => x.id === lastId) : null;
     return `
       <div class="bg-white rounded-lg shadow-card p-12 text-center">
         <div class="text-5xl mb-3">${invalidId ? '🚫' : '📭'}</div>
         <div class="text-base font-medium text-ink mb-2">${invalidId ? '项目不存在' : '未指定项目'}</div>
-        ${invalidId ? `<div class="text-xs text-muted mb-4">URL 中指定的项目编号 <span class="num">${invalidId}</span> 在系统中找不到。可能已被删除或编号有误。</div>` : ''}
-        <div class="text-sm text-muted">请从 <a href="project-intake.html" class="text-brand-600 hover:underline font-medium">"我的项目"</a> 列表选择一个项目进入。</div>
+        ${invalidId ? `<div class="text-xs text-muted mb-4">URL 中指定的项目编号 <span class="num">${invalidId}</span> 在系统中找不到。可能已被删除或编号有误。</div>` : `<div class="text-xs text-muted mb-4">"项目工作台"是面向单一项目的焦点工作区，需要先选择一个项目作为上下文。</div>`}
+        <div class="flex items-center justify-center gap-3 flex-wrap mt-4">
+          ${lastProj ? `<a href="project-workbench.html?projectId=${lastProj.id}" class="text-sm px-4 py-2 bg-brand-600 text-white rounded-md hover:bg-brand-700">继续上次：${lastProj.subject} →</a>` : ''}
+          <a href="project-intake.html" class="text-sm px-4 py-2 ${lastProj?'border border-border hover:bg-bg':'bg-brand-600 text-white hover:bg-brand-700'} rounded-md">${lastProj?'选择其它项目':'前往我的项目 →'}</a>
+        </div>
       </div>
     `;
   }

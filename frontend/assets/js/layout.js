@@ -4,6 +4,32 @@
  * ===================================================================== */
 (function () {
 
+  /* ============== 最近项目记忆（lastProjectId）==============
+   * 写：任意页面 URL 含 ?projectId=X 且 X 在 projects 中存在时
+   * 读：侧栏「项目工作台」菜单 + project-workbench.html 无 projectId 时的回落
+   * 目标：让"项目工作台"作为侧栏焦点入口，跟随用户最近活跃项目，不再静默选第一个
+   * ===================================================== */
+  const LAST_PROJECT_KEY = 'ccascea_last_project';
+  function rememberCurrentProject() {
+    try {
+      const id = new URLSearchParams(location.search).get('projectId');
+      if (!id) return;
+      const list = (window.MockData && window.MockData.projects) || [];
+      if (list.find(p => p.id === id)) {
+        localStorage.setItem(LAST_PROJECT_KEY, id);
+      }
+    } catch (_) {}
+  }
+  function getLastProjectId() {
+    try {
+      const id = localStorage.getItem(LAST_PROJECT_KEY);
+      if (!id) return null;
+      const list = (window.MockData && window.MockData.projects) || [];
+      return list.find(p => p.id === id) ? id : null;
+    } catch (_) { return null; }
+  }
+  window.getLastProjectId = getLastProjectId;
+
   function findActive(activeKey) {
     return (window.AppConfig.routes.find(r => r.key === activeKey)) || window.AppConfig.routes[0];
   }
@@ -26,10 +52,28 @@
           return `<div class="px-4 py-1.5 text-[10px] text-muted/80 font-semibold tracking-wider uppercase border-l-2 border-transparent">${it.label}</div>`;
         }
         const isActive = it.key === activeKey;
+        // 「项目工作台」：动态注入最近项目 projectId + 显示主体简称作为副标识
+        let href = it.href;
+        let suffixHtml = '';
+        if (it.key === 'project-workbench') {
+          const lastId = getLastProjectId();
+          if (lastId) {
+            href = `project-workbench.html?projectId=${lastId}`;
+            const last = ((window.MockData && window.MockData.projects) || []).find(p => p.id === lastId);
+            if (last && last.subject) {
+              const short = last.subject.length > 8 ? last.subject.slice(0, 8) + '…' : last.subject;
+              suffixHtml = `<span class="block text-[10px] text-muted/80 font-normal mt-0.5 truncate">最近：${short}</span>`;
+            }
+          } else {
+            // 无最近项目 → 引导用户先去"我的项目"选一个
+            href = 'project-intake.html';
+            suffixHtml = `<span class="block text-[10px] text-muted/80 font-normal mt-0.5">请先选择项目</span>`;
+          }
+        }
         const cls = isActive
           ? 'block pl-9 pr-4 py-1.5 text-xs bg-brand-50 text-brand-700 font-medium border-l-2 border-brand-600'
           : 'block pl-9 pr-4 py-1.5 text-xs text-ink/75 hover:bg-bg border-l-2 border-transparent';
-        return `<a href="${it.href}" class="${cls}">${it.label}</a>`;
+        return `<a href="${href}" class="${cls}">${it.label}${suffixHtml}</a>`;
       }).join('');
       return `
         <div class="sidebar-group ${expanded ? 'expanded' : ''}" data-group="${g.key}">
@@ -195,6 +239,8 @@
   window.mountLayout = function (activeKey, renderMain) {
     const app = document.getElementById('app');
     if (!app) return;
+    // 在渲染前记忆当前 URL 的 projectId（合法时），保证侧栏「项目工作台」跟随上次活跃项目
+    rememberCurrentProject();
     const mainHtml = (typeof renderMain === 'function') ? renderMain() : (renderMain || '');
     const showCtx = shouldShowProjectContext(activeKey);
     const ctxBar  = showCtx ? buildProjectContextBar(activeKey) : '';

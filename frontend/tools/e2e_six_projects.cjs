@@ -63,8 +63,9 @@ const TARGETS = [
     console.log('\n=== 我的项目"进入工作台"链接 ===');
     await page.goto(BASE + '/pages/project-intake.html', { waitUntil:'networkidle2' });
     await new Promise(r => setTimeout(r, 500));
-    const allLinks = await page.$$eval('a[href*="project-workbench.html?projectId="]', as => as.map(a => a.getAttribute('href')));
-    const newProjLinks = allLinks.filter(h => /P-2026-050[5-9]|P-2026-0510/.test(h));
+    // 只统计主区内的链接，排除侧栏「项目工作台」的动态 href
+    const allLinks = await page.$$eval('main a[href*="project-workbench.html?projectId="]', as => as.map(a => a.getAttribute('href')));
+    const newProjLinks = [...new Set(allLinks.filter(h => /P-2026-050[5-9]|P-2026-0510/.test(h)))];
     ok(newProjLinks.length === 6, `6 个新项目"进入工作台"链接（实际 ${newProjLinks.length}）`);
 
     if (failed) { console.log(`\n❌ ${failed} 项失败`); process.exit(1); }
