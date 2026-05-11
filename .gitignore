@@ -24,3 +24,11 @@ npm-debug.log*
 # Build dist
 dist/
 build/
+
+# 大型素材（PDF / 真实评级报告等），仅本地保留，不入库
+materials/
+*.pdf
+*.docx
+*.xlsx
+*.zip
+*.mp4
