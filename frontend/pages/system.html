@@ -5,19 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>系统管理 · CCASCEA</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<script src="../assets/js/tailwind.config.js?v=20260511b"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
-<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260511b" />
+<meta http-equiv="Cache-Control" content="no-store" />
 </head>
 <body>
 <div id="app"></div>
-<script src="../assets/js/config.js?v=20260505i"></script>
-<script src="../assets/js/mock-data.js?v=20260505i"></script>
-<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
-<script src="../assets/js/common.js?v=20260505i"></script>
-<script src="../assets/js/layout.js?v=20260505i"></script>
-<script src="../assets/js/prompts.js?v=20260505i"></script>
-<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script src="../assets/js/config.js?v=20260511b"></script>
+<script src="../assets/js/mock-data.js?v=20260511b"></script>
+<script src="../assets/js/copy-corpus.js?v=20260511b"></script>
+<script src="../assets/js/common.js?v=20260511b"></script>
+<script src="../assets/js/layout.js?v=20260511b"></script>
+<script src="../assets/js/prompts.js?v=20260511b"></script>
+<script src="../assets/js/ai-agent.js?v=20260511b"></script>
 <script>
 let _tab = 'users';
 
@@ -173,14 +174,14 @@ function renderSources() {
 }
 function renderModels() {
   const models = [
-    { name:'公共信用评分模型',  v:'2.6', updated:'2026-04-15', status:'生产'},
-    { name:'跨域翻译规则库',    v:'1.18',updated:'2026-04-20', status:'生产'},
-    { name:'知识图谱',          v:'3.4', updated:'2026-04-25', status:'生产'},
-    { name:'LLM 推理网关',      v:'1.2', updated:'2026-04-10', status:'生产'},
-    { name:'隐私计算 FATE',     v:'1.11',updated:'2026-03-30', status:'生产'},
-    { name:'ESG 子模型',        v:'1.8', updated:'2026-04-22', status:'生产'},
-    { name:'熔断状态机',        v:'2.0', updated:'2026-04-18', status:'生产'},
-    { name:'报告模板引擎',      v:'1.5', updated:'2026-04-26', status:'灰度'}
+    { name:'公共信用综合评价模型（GB/T 45255-2025）',  v:'2.6', updated:'2026-04-15', status:'生产', note:'读取信用中国 8 大类事实条目 → 输出 ABCD 综合评价（非信用中国官方）'},
+    { name:'跨域翻译规则库',    v:'1.18',updated:'2026-04-20', status:'生产', note:'公共信用扣分事件 → PD/LGD 调整因子'},
+    { name:'知识图谱',          v:'3.4', updated:'2026-04-25', status:'生产', note:'股权穿透 / 担保链 / 关联传染分析'},
+    { name:'LLM 推理网关',      v:'1.2', updated:'2026-04-10', status:'生产', note:'qwen3-max-preview / DashScope'},
+    { name:'隐私计算 FATE',     v:'1.11',updated:'2026-03-30', status:'生产', note:'多方安全计算 + 联邦学习'},
+    { name:'ESG 子模型',        v:'1.8', updated:'2026-04-22', status:'生产', note:'ESG 评级因子拟合'},
+    { name:'熔断状态机',        v:'2.0', updated:'2026-04-18', status:'生产', note:'D 级红线 + 失信主体名单触发器'},
+    { name:'报告模板引擎',      v:'1.5', updated:'2026-04-26', status:'灰度', note:'PDF / DOCX / HTML 多格式输出'}
   ];
   return `
     <h2 class="text-base font-semibold mb-4">模型版本管理（${models.length}）</h2>
@@ -192,7 +193,8 @@ function renderModels() {
             <span class="text-xs px-2 py-0.5 rounded bg-${m.status === '生产' ? 'success' : 'warning'}/10 text-${m.status === '生产' ? 'success' : 'warning'} border border-${m.status === '生产' ? 'success' : 'warning'}/30">${m.status}</span>
           </div>
           <div class="text-xs text-muted mt-1">版本 <span class="num">v${m.v}</span> · 更新于 <span class="num">${m.updated}</span></div>
-          <div class="mt-3 flex gap-2"><button onclick="toast('查看模型详情：${m.name} v${m.v}','info')" class="text-xs text-brand-600 hover:underline">查看详情</button><button onclick="toast('查看版本历史：${m.name}','info')" class="text-xs text-brand-600 hover:underline">版本历史</button></div>
+          ${m.note ? `<div class="text-[11px] text-muted/85 mt-2 leading-snug">${m.note}</div>` : ''}
+          <div class="mt-3 flex gap-2"><button onclick="toast('查看模型详情：${m.name.split('（')[0]} v${m.v}','info')" class="text-xs text-brand-600 hover:underline">查看详情</button><button onclick="toast('查看版本历史：${m.name.split('（')[0]}','info')" class="text-xs text-brand-600 hover:underline">版本历史</button></div>
         </div>
       `).join('')}
     </div>

@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>评级报告 · CCASCEA</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
+<script src="../assets/js/tailwind.config.js?v=20260511b"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
-<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260511b" />
+<meta http-equiv="Cache-Control" content="no-store" />
 </head>
 <body class="bg-bg">
 
@@ -15,13 +16,13 @@
      概述 + 声明 + 正文（分析 + 结论）+ 跟踪评级安排 + 附录 -->
 <div id="app"></div>
 
-<script src="../assets/js/config.js?v=20260505i"></script>
-<script src="../assets/js/mock-data.js?v=20260505i"></script>
-<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
-<script src="../assets/js/common.js?v=20260505i"></script>
-<script src="../assets/js/layout.js?v=20260505i"></script>
-<script src="../assets/js/prompts.js?v=20260505i"></script>
-<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script src="../assets/js/config.js?v=20260511b"></script>
+<script src="../assets/js/mock-data.js?v=20260511b"></script>
+<script src="../assets/js/copy-corpus.js?v=20260511b"></script>
+<script src="../assets/js/common.js?v=20260511b"></script>
+<script src="../assets/js/layout.js?v=20260511b"></script>
+<script src="../assets/js/prompts.js?v=20260511b"></script>
+<script src="../assets/js/ai-agent.js?v=20260511b"></script>
 <script>
 const reportId = new URLSearchParams(location.search).get('id') || 'R-20260428-001';
 const report   = MockData.reports.find(r => r.id === reportId) || MockData.reports[0];
@@ -437,12 +438,12 @@ document.getElementById('app').innerHTML = `
       <!-- 12 公共信用融合 -->
       <section id="sec-12" class="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-gold rounded-lg shadow-cardLg p-6">
         <h2 class="text-lg font-bold flex items-center gap-2"><span class="num text-gold">12</span> 公共信用综合评价应用 <span class="text-[10px] bg-gold text-white px-1.5 py-0.5 rounded ml-1">双轨融合</span></h2>
-        <div class="text-[10px] text-muted mb-4">依据：GB/T 45255-2025 · GB/T 45255-2025</div>
+        <div class="text-[10px] text-muted mb-4">依据：GB/T 45255-2025《公共信用综合评价规范》 · 数据源：信用中国官方报告（事实条目，不打分）</div>
         <div class="grid grid-cols-3 gap-4 mb-4">
           <div class="border border-gold/40 bg-white rounded-lg p-4 text-center">
-            <div class="text-xs text-muted">公共信用等级</div>
+            <div class="text-xs text-muted">公共信用综合评价</div>
             <div class="mt-2">${publicGradeBadge(report.public, { large:true })}</div>
-            <div class="text-[10px] text-muted mt-2">${getPublicGradeSemantic(report.public)}</div>
+            <div class="text-[10px] text-muted mt-2">${getPublicGradeSemantic(report.public)}<br/><span class="text-warning">GB/T 45255-2025 · 非信用中国官方</span></div>
           </div>
           <div class="border border-gold/40 bg-white rounded-lg p-4 text-center">
             <div class="text-xs text-muted">硬性约束</div>

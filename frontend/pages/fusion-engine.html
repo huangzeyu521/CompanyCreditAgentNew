@@ -5,18 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>公共信用融合引擎 · CCASCEA</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="../assets/js/tailwind.config.js?v=20260505i"></script>
-<link rel="stylesheet" href="../assets/css/theme.css?v=20260505i" />
+<script src="../assets/js/tailwind.config.js?v=20260511b"></script>
+<link rel="stylesheet" href="../assets/css/theme.css?v=20260511b" />
+<meta http-equiv="Cache-Control" content="no-store" />
 </head>
 <body>
 <div id="app"></div>
-<script src="../assets/js/config.js?v=20260505i"></script>
-<script src="../assets/js/mock-data.js?v=20260505i"></script>
-<script src="../assets/js/copy-corpus.js?v=20260505i"></script>
-<script src="../assets/js/common.js?v=20260505i"></script>
-<script src="../assets/js/layout.js?v=20260505i"></script>
-<script src="../assets/js/prompts.js?v=20260505i"></script>
-<script src="../assets/js/ai-agent.js?v=20260505i"></script>
+<script src="../assets/js/config.js?v=20260511b"></script>
+<script src="../assets/js/mock-data.js?v=20260511b"></script>
+<script src="../assets/js/copy-corpus.js?v=20260511b"></script>
+<script src="../assets/js/common.js?v=20260511b"></script>
+<script src="../assets/js/layout.js?v=20260511b"></script>
+<script src="../assets/js/prompts.js?v=20260511b"></script>
+<script src="../assets/js/ai-agent.js?v=20260511b"></script>
 <script>
 /* ============== 公共信用融合引擎（FR-C-005 · SRS §3.8）============== */
 function renderMain() {
@@ -63,9 +64,14 @@ function renderMain() {
           ABCD ↔ AAA-C 映射模型
         </h3>
       </div>
+      <div class="px-5 py-3 bg-bg/40 border-b border-border text-[11px] text-muted leading-relaxed">
+        ⓘ 左列 ABCD 是<strong class="text-ink/85">远东资信按 GB/T 45255-2025《公共信用综合评价规范》</strong>，
+        基于信用中国披露的失信被执行 / 严重失信主体名单 / 经营异常等事实条目计算得出的综合评价等级，
+        <strong class="text-warning">非信用中国官方等级</strong>（信用中国本身不打分、不出等级）。
+      </div>
       <table class="w-full text-sm">
         <thead><tr class="th text-left">
-          <th class="px-4 py-2">公共信用等级</th>
+          <th class="px-4 py-2">公共信用综合评价</th>
           <th class="py-2">市场化最高上限</th>
           <th class="py-2">软性参考调整</th>
           <th class="py-2">说明</th>
@@ -204,9 +210,9 @@ function renderMain() {
       </h3>
       <div class="grid grid-cols-4 gap-4">
         <div class="border border-border rounded p-3 text-center">
-          <div class="text-xs text-muted">公共信用等级</div>
+          <div class="text-xs text-muted">公共信用综合评价</div>
           <div class="mt-1">${publicGradeBadge('B', { large:true })}</div>
-          <div class="text-[10px] text-muted mt-2">基本诚信（良级）</div>
+          <div class="text-[10px] text-muted mt-2">基本诚信（良级）<br/><span class="text-warning">GB/T 45255-2025，非信用中国官方</span></div>
         </div>
         <div class="border border-border rounded p-3 text-center">
           <div class="text-xs text-muted">硬性约束</div>
