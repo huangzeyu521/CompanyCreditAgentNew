@@ -85,7 +85,7 @@ window.MockData = (function () {
       establishedAt:'2003-03-25',                       // 来源：复星集团 + 南钢集团联合发起
       listed:false,                                     // 联合公司未上市；下属南钢股份 600282 上市
       validUntil:'2027-04-28',
-      publicScore:740, publicGrade:'B', marketGrade:'AA-', fusionGrade:'A', outlook:'稳定',
+      publicGrade:'B', marketGrade:'AA-', fusionGrade:'A', outlook:'稳定',
       fuseStatus:'normal',
       sourceCitation:'南京钢铁股份 (600282) 2024 年年度报告 / 公司官网 www.sgnc.com.cn'
     },
@@ -100,7 +100,7 @@ window.MockData = (function () {
       listed:false,                                     // 集团未上市；下属"华西股份"曾上市
       validUntil:'2026-12-31',
       // 真实信用中国报告（2026-05-05 PDF）显示为"守信激励对象"：6 个年度纳税 A 级 + 80 行政许可 + 11 信用承诺 + 0 严重失信
-      publicScore:870, publicGrade:'A', marketGrade:'AA-', fusionGrade:'AA-', outlook:'稳定',
+      publicGrade:'A', marketGrade:'AA-', fusionGrade:'AA-', outlook:'稳定',
       fuseStatus:'normal',
       sourceCitation:'信用中国（国家公共信用和地理空间信息中心）2026-05-05 公开报告 编号 202605051628567075488Z'
     },
@@ -114,7 +114,7 @@ window.MockData = (function () {
       establishedAt:'2002-09-29',                       // 来源：工商登记
       listed:false,
       validUntil:'2027-06-30',
-      publicScore:680, publicGrade:'B', marketGrade:'A', fusionGrade:'A-', outlook:'负面',
+      publicGrade:'B', marketGrade:'A', fusionGrade:'A-', outlook:'负面',
       fuseStatus:'warning',
       sourceCitation:'国家企业信用信息公示系统（注：该主体历史数据，仅供 CCASCEA 演示）'
     },
@@ -129,7 +129,7 @@ window.MockData = (function () {
       listed:true,                                      // 下属上海华源股份等多家 A 股上市公司
       validUntil:'2027-12-31',
       // 真实信用中国报告（2026-05-05 PDF）显示为"失信被执行人 / 失信惩戒对象"：(2009)浦执字第07352号 全部未履行
-      publicScore:340, publicGrade:'D', marketGrade:'BB-', fusionGrade:'B+', outlook:'负面',
+      publicGrade:'D', marketGrade:'BB-', fusionGrade:'B+', outlook:'负面',
       fuseStatus:'restricted',
       fuseReason:'真实信用中国报告记载：失信被执行人（法人），(2009)浦执字第07352号，2015-07-15 发布，全部未履行',
       sourceCitation:'信用中国（国家公共信用和地理空间信息中心）2026-05-05 公开报告 编号 20260505163213731547U5'
@@ -144,7 +144,7 @@ window.MockData = (function () {
       establishedAt:'1993-12-27',                       // 来源：公司年报
       listed:true,                                      // 沪市 600841 / B 股 900920
       validUntil:'2027-04-15',
-      publicScore:830, publicGrade:'A', marketGrade:'AA-', fusionGrade:'AA-', outlook:'稳定',
+      publicGrade:'A', marketGrade:'AA-', fusionGrade:'AA-', outlook:'稳定',
       fuseStatus:'normal',
       sourceCitation:'上柴股份 (600841) 2024 年年度报告 / 现更名"上海新动力汽车科技股份有限公司"'
     },
@@ -159,7 +159,7 @@ window.MockData = (function () {
       listed:true,                                      // 沪市 600377 / 港股 0177
       validUntil:'2026-08-15',
       // 真实信用中国报告（2026-05-05）显示为"守信激励对象"：5 个年度纳税 A 级 + 29 行政许可 + 0 严重失信
-      publicScore:880, publicGrade:'A', marketGrade:'AA', fusionGrade:'AA-', outlook:'稳定',
+      publicGrade:'A', marketGrade:'AA', fusionGrade:'AA-', outlook:'稳定',
       fuseStatus:'normal',
       sourceCitation:'信用中国（国家公共信用和地理空间信息中心）2026-05-05 公开报告 编号 20260505164152560952K5'
     },
@@ -174,7 +174,7 @@ window.MockData = (function () {
       listed:true,                                      // 沪市 600362 / 港股 00358
       validUntil:'2027-04-30',
       // 真实信用中国报告（2026-05-05）"守信激励对象"：10 年纳税 A + 海关高级认证 + 59 行政许可 + 0 严重失信
-      publicScore:920, publicGrade:'A', marketGrade:'AA+', fusionGrade:'AA+', outlook:'稳定',
+      publicGrade:'A', marketGrade:'AA+', fusionGrade:'AA+', outlook:'稳定',
       fuseStatus:'normal',
       sourceCitation:'信用中国（国家公共信用和地理空间信息中心）2026-05-05 公开报告 编号 20260505164253427677H6'
     },
@@ -188,7 +188,7 @@ window.MockData = (function () {
       establishedAt:'1999-12-29',
       listed:false,                                     // 集团本身未上市；下属"三房巷" 600370 上市
       validUntil:'2026-12-31',
-      publicScore:620, publicGrade:'C', marketGrade:'BBB', fusionGrade:'BBB-', outlook:'负面',
+      publicGrade:'C', marketGrade:'BBB', fusionGrade:'BBB-', outlook:'负面',
       fuseStatus:'warning',
       sourceCitation:'江阴市人民政府公开资料 / 三房巷 (600370) 关联交易公告'
     },
@@ -202,7 +202,7 @@ window.MockData = (function () {
       establishedAt:'1999-04-19',
       listed:true,                                      // 已重组为华菱钢铁 000932
       validUntil:'2026-09-30',
-      publicScore:780, publicGrade:'B', marketGrade:'A', fusionGrade:'A-', outlook:'稳定',
+      publicGrade:'B', marketGrade:'A', fusionGrade:'A-', outlook:'稳定',
       fuseStatus:'normal',
       sourceCitation:'远东资信公开评级报告 sfecr/中期票据 / 该主体后整合为华菱钢铁 (000932)'
     },
@@ -216,7 +216,7 @@ window.MockData = (function () {
       establishedAt:'2003-08-04',
       listed:false,
       validUntil:'2027-09-30',
-      publicScore:855, publicGrade:'A', marketGrade:'AA-', fusionGrade:'AA', outlook:'稳定',
+      publicGrade:'A', marketGrade:'AA-', fusionGrade:'AA', outlook:'稳定',
       fuseStatus:'normal',
       sourceCitation:'武汉城投官网 / 信用中国（湖北） · 远东资信公开评级报告'
     },
@@ -230,7 +230,7 @@ window.MockData = (function () {
       establishedAt:'1994-03-17',
       listed:false,
       validUntil:'2027-12-31',
-      publicScore:920, publicGrade:'A', marketGrade:'AAA', fusionGrade:'AAA', outlook:'稳定',
+      publicGrade:'A', marketGrade:'AAA', fusionGrade:'AAA', outlook:'稳定',
       fuseStatus:'normal',
       sourceCitation:'国家开发银行官网 www.cdb.com.cn / 国家企业信用信息公示系统'
     },
@@ -244,7 +244,7 @@ window.MockData = (function () {
       establishedAt:'1954-10-01',
       listed:true,                                      // 沪市 601939 / 港股 00939
       validUntil:'2027-12-31',
-      publicScore:910, publicGrade:'A', marketGrade:'AAA', fusionGrade:'AAA', outlook:'稳定',
+      publicGrade:'A', marketGrade:'AAA', fusionGrade:'AAA', outlook:'稳定',
       fuseStatus:'normal',
       sourceCitation:'建设银行 (601939 / 00939) 公开年报 / 公司官网 www.ccb.com'
     },
@@ -258,7 +258,7 @@ window.MockData = (function () {
       establishedAt:'1996-07-30',
       listed:true,                                      // 申万宏源 000166 / 6806
       validUntil:'2027-04-15',
-      publicScore:885, publicGrade:'A', marketGrade:'AA+', fusionGrade:'AA+', outlook:'稳定',
+      publicGrade:'A', marketGrade:'AA+', fusionGrade:'AA+', outlook:'稳定',
       fuseStatus:'normal',
       sourceCitation:'申银万国证券（现申万宏源 000166）历史沿革 / 远东资信公开评级报告'
     },
@@ -274,7 +274,7 @@ window.MockData = (function () {
       listed:false,
       validUntil:'2027-12-31',
       // 实际"守信激励对象"：22 行政许可 / 3 纳税 A / 1 信用承诺 / 0 严重失信
-      publicScore:880, publicGrade:'A', marketGrade:'AA', fusionGrade:'AA', outlook:'稳定',
+      publicGrade:'A', marketGrade:'AA', fusionGrade:'AA', outlook:'稳定',
       fuseStatus:'normal',
       sourceCitation:'信用中国（国家公共信用和地理空间信息中心）2026-05-05 公开报告 编号 20260505174108986E4905'
     },
@@ -289,7 +289,7 @@ window.MockData = (function () {
       listed:false,
       validUntil:'2027-12-31',
       // 实际"失信惩戒对象"：181 严重失信被执行人案例（极端高风险）
-      publicScore:180, publicGrade:'D', marketGrade:'C', fusionGrade:'CCC', outlook:'负面',
+      publicGrade:'D', marketGrade:'C', fusionGrade:'CCC', outlook:'负面',
       fuseStatus:'restricted',
       fuseReason:'真实信用中国报告记载：181 条失信被执行人案例（含 (2026)冀0921执188号等），触发 D 级一票否决',
       sourceCitation:'信用中国（国家公共信用和地理空间信息中心）2026-05-05 公开报告 编号 20260505175357650928R4'
@@ -305,7 +305,7 @@ window.MockData = (function () {
       listed:false,
       validUntil:'2026-12-31',
       // 实际"失信惩戒对象"：1 失信被执行人 (2026)川1102执478号 全部未履行
-      publicScore:280, publicGrade:'D', marketGrade:'CCC', fusionGrade:'CC', outlook:'负面',
+      publicGrade:'D', marketGrade:'CCC', fusionGrade:'CC', outlook:'负面',
       fuseStatus:'restricted',
       fuseReason:'真实信用中国报告记载：失信被执行人 (2026)川1102执478号 · 违反财产报告制度 · 全部未履行',
       sourceCitation:'信用中国（国家公共信用和地理空间信息中心）2026-05-05 公开报告 编号 20260505180050297G0243'
@@ -321,7 +321,7 @@ window.MockData = (function () {
       listed:false,
       validUntil:'2026-12-31',
       // 实际"失信惩戒对象"：1 失信被执行人 + 2 经营异常（双重红线）
-      publicScore:200, publicGrade:'D', marketGrade:'CC', fusionGrade:'C', outlook:'负面',
+      publicGrade:'D', marketGrade:'CC', fusionGrade:'C', outlook:'负面',
       fuseStatus:'restricted',
       fuseReason:'真实信用中国报告记载：失信被执行人 (2022)渝0120执1396号 + 2 项经营异常（无法联系）',
       sourceCitation:'信用中国（国家公共信用和地理空间信息中心）2026-05-05 公开报告 编号 202605051755133142N523'
@@ -337,7 +337,7 @@ window.MockData = (function () {
       listed:false,
       validUntil:'2027-12-31',
       // 实际报告 191 行政许可 + 117 信用承诺，0 严重失信，典型城投平台
-      publicScore:790, publicGrade:'B', marketGrade:'AA-', fusionGrade:'A+', outlook:'稳定',
+      publicGrade:'B', marketGrade:'AA-', fusionGrade:'A+', outlook:'稳定',
       fuseStatus:'normal',
       sourceCitation:'信用中国（国家公共信用和地理空间信息中心）2026-05-05 公开报告 编号 2026050517570443042L84'
     },
@@ -352,7 +352,7 @@ window.MockData = (function () {
       listed:false,
       validUntil:'2026-12-31',
       // 实际"失信惩戒对象"：1 失信被执行人 (2025)湘1026执36号
-      publicScore:380, publicGrade:'D', marketGrade:'B', fusionGrade:'CCC', outlook:'负面',
+      publicGrade:'D', marketGrade:'B', fusionGrade:'CCC', outlook:'负面',
       fuseStatus:'restricted',
       fuseReason:'真实信用中国报告记载：失信被执行人 (2025)湘1026执36号 · 其他规避执行 · 全部未履行',
       sourceCitation:'信用中国（国家公共信用和地理空间信息中心）2026-05-05 公开报告 编号 202605051759032014249N'
